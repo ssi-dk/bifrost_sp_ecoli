@@ -1,0 +1,3 @@
+[submodule "bifrost_sp_ecoli/ecoli_fbi"]
+	path = bifrost_sp_ecoli/ecoli_fbi
+	url = https://github.com/ssi-dk/ecoli_fbi.git
