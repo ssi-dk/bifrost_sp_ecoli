@@ -5,6 +5,8 @@ This component runs given a sample_id already added into the bifrostDB. If the s
 ```bash
 git clone https://github.com/ssi-dk/bifrost_sp_ecoli.git
 cd bifrost_sp_ecoli
+git submodule init
+git submodule update
 bash install.sh -i LOCAL
 conda activate bifrost_sp_ecoli_vx.x.x
 export BIFROST_INSTALL_DIR='/your/path/'
