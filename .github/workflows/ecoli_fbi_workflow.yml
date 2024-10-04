@@ -1,0 +1,49 @@
+name: bifrost sp ecoli workflow
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: ["ubuntu-latest"]
+        python-version: ["3.10","3.11"]
+
+    steps:
+      # step 1: checkout repository
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # step 2 use environment.yml dependencies to create conda environment
+      - name: Set up Conda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-update-conda: true
+          activate-environment: bifrost_sp_ecoli_env
+          environment-file: environment.yml
+          python-version: ${{ matrix.python-version }}
+
+      # Step 2: Install dependencies via install.sh
+      - name: Run install.sh script
+        run: |
+          bash install.sh -i LOCAL
+
+      #- name: Run local tests
+      #  run: |
+      #    # Set the environment variables as needed
+      #    export BIFROST_INSTALL_DIR="${{ github.workspace }}/bifrost_sp_ecoli"
+      #    export BIFROST_DB_KEY="${{ secrets.BIFROST_DB_KEY }}"
+      #  
+      #    # Activate your Conda environment
+      #    conda activate bifrost_sp_ecoli_env  
+      #    python -m bifrost_sp_ecoli -h
+      #
+      #- name: Run tests
+      #  run: |
+      #    pytest tests/
+      #
