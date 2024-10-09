@@ -9,6 +9,12 @@ helpFunction()
    exit 1 # Exit script after printing help
 }
 
+# Check if the conda command exist in order to setup the conda environment
+if ! command -v conda &> /dev/null; then
+    echo "conda could not be found, please install Anaconda/Miniconda"
+    exit 1
+fi
+
 while getopts "i:" opt
 do
    case "$opt" in

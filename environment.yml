@@ -12,7 +12,7 @@ dependencies:
       - openpyxl
       - pandas
       - envyaml
-      - pandas
+      - pytest
       - requests 
       - python-dotenv
       - bifrostlib
