@@ -15,35 +15,29 @@ jobs:
         python-version: ["3.11"]
 
     steps:
-      # step 1: checkout repository
+      # Step 1: Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v3
-
-      # step 2 use environment.yml dependencies to create conda environment
-      - name: Set up miniconda
-        uses: conda-incubator/setup-miniconda@v3
-        with:
-          auto-update-conda: true
-          environment-file: environment.yml
-          activate-environment: bifrost_sp_ecoli_env
-          python-version: ${{ matrix.python-version }}
-
-      # Step 2: Install dependencies via install.sh
-      - name: Run install.sh script
+        
+      # Step 2: Set environment variables
+      - name: Set environment variables
         run: |
-          bash install.sh -i LOCAL
+          echo "BIFROST_INSTALL_DIR='${{ github.workspace }}'" >> $GITHUB_ENV
+          echo "BIFROST_DB_KEY='${{ secrets.MONGODB_ATLAS_CONNECTION }}'" >> $GITHUB_ENV
 
-      #- name: Run local tests
-      #  run: |
-      #    # Set the environment variables as needed
-      #    export BIFROST_INSTALL_DIR="${{ github.workspace }}/bifrost_sp_ecoli"
-      #    export BIFROST_DB_KEY="${{ secrets.BIFROST_DB_KEY }}"
-      #  
-      #    # Activate your Conda environment
-      #    conda activate bifrost_sp_ecoli_env  
-      #    python -m bifrost_sp_ecoli -h
-      #
-      #- name: Run tests
-      #  run: |
-      #    pytest tests/
-      #
+      # Step 3: Build Docker image
+      - name: Build Docker image
+        run: |
+          set -e  # Exit immediately if a command exits with a non-zero status
+          docker build -t bifrost_sp_ecoli_image . 
+      # docker build -t bifrost_sp_ecoli_image -f /path/to/your/Dockerfile .
+
+
+      # Step 4: Run tests in Docker container
+      - name: Run tests
+        run: |
+          docker run --rm \
+          -e BIFROST_INSTALL_DIR='${{ github.workspace }}' \
+          -e BIFROST_DB_KEY='${{ secrets.MONGODB_ATLAS_CONNECTION }}' \
+          bifrost_sp_ecoli_image \
+          bash -c "conda activate bifrost_sp_ecoli_env && pytest "
