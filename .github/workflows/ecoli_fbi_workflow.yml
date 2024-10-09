@@ -18,6 +18,8 @@ jobs:
       # Step 1: Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          submodules: 'true' 
         
       # Step 2: Set environment variables
       - name: Set environment variables

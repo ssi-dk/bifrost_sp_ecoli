@@ -9,6 +9,9 @@ WORKDIR /app
 # Install app dependencies and git necessary for submodules when using info from ecoli_fbi github repository
 RUN apt-get update && apt-get install -y git
 
+# Copy the entire repository into the container
+COPY . .
+
 # Initialize and update submodules
 RUN git submodule init && git submodule update
 
