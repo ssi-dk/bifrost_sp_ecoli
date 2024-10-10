@@ -17,7 +17,7 @@ COPY . .
 
 # Copy the install.sh and environment.yml into the container
 COPY install.sh .
-COPY environment.yml .
+#COPY environment.yml .
 
 # Ensure install.sh is executable
 RUN chmod +x install.sh
@@ -26,7 +26,7 @@ RUN chmod +x install.sh
 #RUN conda env create -f environment.yml
 
 # Set the default shell to conda environment
-SHELL ["conda", "run", "-n", "bifrost_sp_ecoli_env", "/bin/bash", "-c"]
+#SHELL ["conda", "run", "-n", "bifrost_sp_ecoli_env", "/bin/bash", "-c"]
 
 # Install the tool using the install script
 RUN bash install.sh -i LOCAL
