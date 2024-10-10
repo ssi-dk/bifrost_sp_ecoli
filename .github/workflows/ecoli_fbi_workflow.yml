@@ -42,4 +42,4 @@ jobs:
           -e BIFROST_INSTALL_DIR='${{ github.workspace }}' \
           -e BIFROST_DB_KEY='${{ secrets.MONGODB_ATLAS_CONNECTION }}' \
           bifrost_sp_ecoli_image \
-          bash -c "conda init && conda activate $ENV_NAME && pytest"
+          bash -c "source /opt/conda/etc/profile.d/conda.sh && conda activate $ENV_NAME && pytest"

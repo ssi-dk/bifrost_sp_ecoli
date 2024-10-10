@@ -19,6 +19,9 @@ COPY install.sh .
 # Ensure install.sh is executable
 RUN chmod +x install.sh
 
+# Initialize conda for bash shell
+RUN /opt/conda/bin/conda init bash
+
 # Install the tool using the install script
 RUN bash install.sh -i LOCAL
 
