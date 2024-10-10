@@ -24,13 +24,6 @@ def test_mongo_connection():
         print("Attempt to connect to the database")
         ping = client.admin.command('ping')
         print("Successfully connected to the MongoDB database.")
-        
-        except ConnectionFailure:
-        print("Server not available")
-        except pymongo.errors.PyMongoError as e:
-        print("Pymongo error: " + str(e))
-        except Exception as exc:
-        print("Exception: " + str(exc))
 
         # Clean up: close the client
         client.close()
