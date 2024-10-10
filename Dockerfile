@@ -23,7 +23,7 @@ COPY environment.yml .
 RUN chmod +x install.sh
 
 # Install dependencies and create the conda environment
-RUN conda env create -f environment.yml
+#RUN conda env create -f environment.yml
 
 # Set the default shell to conda environment
 SHELL ["conda", "run", "-n", "bifrost_sp_ecoli_env", "/bin/bash", "-c"]
