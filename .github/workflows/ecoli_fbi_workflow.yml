@@ -42,4 +42,18 @@ jobs:
           -e BIFROST_INSTALL_DIR='${{ github.workspace }}' \
           -e BIFROST_DB_KEY='${{ secrets.MONGODB_ATLAS_CONNECTION }}' \
           bifrost_sp_ecoli_image \
-          bash -c "source /opt/conda/etc/profile.d/conda.sh && conda activate $ENV_NAME && pytest"
+          bash -c "
+            if [ -z \"$ENV_NAME\" ]; then \
+                echo 'conda environment name has not been accurately exported. Check install.sh'; \
+                exit 1; \
+            else \
+              source /opt/conda/etc/profile.d/conda.sh && \
+              echo 'Activating conda environment: $ENV_NAME' && \
+              conda activate $ENV_NAME && \
+              if [ $? -ne 0 ]; then \
+                echo 'Failed to activate conda environment: $ENV_NAME. Please check if it exists.'; \
+                conda info --envs; \
+                exit 1; \
+              fi; \
+            fi && \
+            pytest"
