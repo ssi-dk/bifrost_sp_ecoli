@@ -19,7 +19,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
-          submodules: 'true' 
+          submodules: 'true'  #Initialize and update submodules -> git submodule init && git submodule update
         
       # Step 2: Set environment variables
       - name: Set environment variables
@@ -35,7 +35,6 @@ jobs:
           -t bifrost_sp_ecoli_image . 
       # docker build -t bifrost_sp_ecoli_image -f /path/to/your/Dockerfile .
 
-
       # Step 4: Run tests in Docker container
       - name: Run tests
         run: |
@@ -43,6 +42,4 @@ jobs:
           -e BIFROST_INSTALL_DIR='${{ github.workspace }}' \
           -e BIFROST_DB_KEY='${{ secrets.MONGODB_ATLAS_CONNECTION }}' \
           bifrost_sp_ecoli_image \
-          bash -c "pytest "
-
-# conda activate bifrost_sp_ecoli_env && 
+          bash -c "conda activate $ENV_NAME && pytest"
