@@ -148,7 +148,6 @@ then
   exit 1
 else
   echo "Environment $ENV_NAME was created"
-  echo "ENV_NAME=$ENV_NAME" >> $GITHUB_ENV
 fi
 
 #check if custom_install.sh file exists and run it
