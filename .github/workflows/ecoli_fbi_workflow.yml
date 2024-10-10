@@ -25,13 +25,14 @@ jobs:
       - name: Set environment variables
         run: |
           echo "BIFROST_INSTALL_DIR='${{ github.workspace }}'" >> $GITHUB_ENV
-          echo "BIFROST_DB_KEY='${{ secrets.MONGODB_ATLAS_CONNECTION }}'" >> $GITHUB_ENV
 
       # Step 3: Build Docker image
       - name: Build Docker image
         run: |
           set -e  # Exit immediately if a command exits with a non-zero status
-          docker build -t bifrost_sp_ecoli_image . 
+          docker build \
+          --build-arg BIFROST_DB_KEY=${{ secrets.MONGODB_ATLAS_CONNECTION }} \
+          -t bifrost_sp_ecoli_image . 
       # docker build -t bifrost_sp_ecoli_image -f /path/to/your/Dockerfile .
 
 
@@ -42,4 +43,6 @@ jobs:
           -e BIFROST_INSTALL_DIR='${{ github.workspace }}' \
           -e BIFROST_DB_KEY='${{ secrets.MONGODB_ATLAS_CONNECTION }}' \
           bifrost_sp_ecoli_image \
-          bash -c "conda activate bifrost_sp_ecoli_env && pytest "
+          bash -c "pytest "
+
+# conda activate bifrost_sp_ecoli_env && 

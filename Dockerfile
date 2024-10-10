@@ -13,11 +13,11 @@ RUN apt-get update && apt-get install -y git
 COPY . .
 
 # Initialize and update submodules
-RUN git submodule init && git submodule update
+# RUN git submodule init && git submodule update
 
 # Copy the install.sh and environment.yml into the container
-COPY environment.yml .
 COPY install.sh .
+COPY environment.yml .
 
 # Ensure install.sh is executable
 RUN chmod +x install.sh
