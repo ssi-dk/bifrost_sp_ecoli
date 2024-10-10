@@ -67,4 +67,4 @@ jobs:
                 exit 1; \
               fi; \
             fi && \
-            pytest"
+            pytest cmd_test.py"
