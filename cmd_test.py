@@ -19,7 +19,7 @@ def connect_to_database():
     try:
         # create a database instance
         client = pymongo.MongoClient(db_key)
-        
+
         # Attempt to get server info to verify the connection
         server_info = client.server_info()  # Raises an exception if the connection fails
         print("MongoDB client created successfully!")
@@ -47,6 +47,18 @@ def test_db_connection():
     finally:
         if client:
             client.close()  
+
+def test_launcher_info(test_db_connection):
+    """
+    Test using the launcher to run --info.
+    """
+    launcher.run_pipeline(["--info"])
+
+def test_launcher_help(test_db_connection):
+    """
+    Test using the launcher to run --help.
+    """
+    launcher.run_pipeline(["--help"])
 
 # This allows pytest to run all test functions in this file
 if __name__ == "__main__":
