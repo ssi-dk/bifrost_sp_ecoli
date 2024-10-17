@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: ["main"]
   repository_dispatch:  # webhook event to trigger this action workflow upon push to the submodule ecoli_fbi 
-    types: [ecoli-fbi-webhook] 
+    types: ecoli-fbi-webhook 
 
 jobs:
   build:
@@ -81,4 +81,4 @@ jobs:
                 exit 1; \
               fi; \
             fi && \
-            pytest cmd_test.py"
+            python cmd_test.py"
