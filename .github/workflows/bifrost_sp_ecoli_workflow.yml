@@ -55,7 +55,7 @@ jobs:
         run: |
           set -e  # Exit immediately if a command exits with a non-zero status
           docker build \
-          --build-arg BIFROST_DB_KEY=${{ secrets.MONGODB_ATLAS_CONNECTION }} \
+          --build-arg BIFROST_DB_KEY=${{ secrets.MONGODB_ATLAS_TEST }} \
           -t bifrost_sp_ecoli_image . 
       # docker build -t bifrost_sp_ecoli_image -f /path/to/your/Dockerfile .
 
@@ -65,7 +65,7 @@ jobs:
           ENV_NAME=${{ env.ENV_NAME }}
           docker run --rm \
           -e BIFROST_INSTALL_DIR='${{ github.workspace }}' \
-          -e BIFROST_DB_KEY='${{ secrets.MONGODB_ATLAS_CONNECTION }}' \
+          -e BIFROST_DB_KEY='${{secrets.MONGODB_ATLAS_TEST }}' \
           bifrost_sp_ecoli_image \
           bash -c "
             if [ -z \"$ENV_NAME\" ]; then \
