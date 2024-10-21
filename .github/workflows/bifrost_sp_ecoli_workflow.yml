@@ -59,4 +59,4 @@ jobs:
       # Step 6: Run Docker container and execute the command
       - name: Run Docker container
         run: |
-          docker run --env BIFROST_DB_KEY="${{ secrets.MONGODB_ATLAS_TEST  }}" bifrost_sp_ecoli_image
+          docker run --env BIFROST_DB_KEY="${{ secrets.MONGODB_ATLAS_TEST  }}" --env CONDA_ENV_NAME="${{ env.ENV_NAME }}" bifrost_sp_ecoli_image

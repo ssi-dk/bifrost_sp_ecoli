@@ -32,5 +32,5 @@ ARG BIFROST_DB_KEY=''
 ARG CONDA_ENV_NAME='bifrost_sp_ecoli_v0.0.1'
 
 # Set the default command to run the Python module
-CMD ["bash", "-c", "BIFROST_DB_KEY=\"$BIFROST_DB_KEY\" conda run -n $CONDA_ENV_NAME python cmd_test.py"]
+CMD ["bash", "-c", "BIFROST_DB_KEY=\"$BIFROST_DB_KEY\" conda run -n bifrost_sp_ecoli_v0.0.1 python cmd_test.py"]
 
