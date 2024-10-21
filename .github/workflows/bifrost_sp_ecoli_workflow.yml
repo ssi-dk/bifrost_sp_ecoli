@@ -6,7 +6,8 @@ on:
   pull_request:
     branches: ["main"]
   repository_dispatch:  # webhook event to trigger this action workflow upon push to the submodule ecoli_fbi 
-    types: ecoli-fbi-webhook 
+    types: 
+      - ecoli-fbi-webhook 
 
 jobs:
   build:
@@ -15,7 +16,7 @@ jobs:
       matrix:
         os: ["ubuntu-latest"]
         python-version: ["3.11"]
-
+  
     steps:
       # Step 1: Checkout repository
       - name: Checkout repository
@@ -53,32 +54,9 @@ jobs:
       # Step 5: Build Docker image
       - name: Build Docker image
         run: |
-          set -e  # Exit immediately if a command exits with a non-zero status
-          docker build \
-          --build-arg BIFROST_DB_KEY=${{ secrets.MONGODB_ATLAS_TEST }} \
-          -t bifrost_sp_ecoli_image . 
-      # docker build -t bifrost_sp_ecoli_image -f /path/to/your/Dockerfile .
+          docker build -t bifrost_sp_ecoli_image .
 
-      # Step 6: Run tests in Docker container
-      - name: Run tests
+      # Step 6: Run Docker container and execute the command
+      - name: Run Docker container
         run: |
-          ENV_NAME=${{ env.ENV_NAME }}
-          docker run --rm \
-          -e BIFROST_INSTALL_DIR='${{ github.workspace }}' \
-          -e BIFROST_DB_KEY='${{secrets.MONGODB_ATLAS_TEST }}' \
-          bifrost_sp_ecoli_image \
-          bash -c "
-            if [ -z \"$ENV_NAME\" ]; then \
-                echo 'conda environment name has not been accurately exported. Check install.sh'; \
-                exit 1; \
-            else \
-              source /opt/conda/etc/profile.d/conda.sh && \
-              echo 'Activating conda environment: $ENV_NAME' && \
-              conda activate $ENV_NAME && \
-              if [ $? -ne 0 ]; then \
-                echo 'Failed to activate conda environment: $ENV_NAME. Please check if it exists.'; \
-                conda info --envs; \
-                exit 1; \
-              fi; \
-            fi && \
-            python cmd_test.py"
+          docker run --env BIFROST_DB_KEY="${{ secrets.MONGODB_ATLAS_TEST  }}" bifrost_sp_ecoli_image

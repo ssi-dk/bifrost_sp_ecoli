@@ -31,5 +31,5 @@ ENV BIFROST_INSTALL_DIR='/app'
 ARG BIFROST_DB_KEY=''
 
 # Set the default command to run the Python module
-CMD ["bash"]
+CMD ["python", "cmd_test.py"]
 

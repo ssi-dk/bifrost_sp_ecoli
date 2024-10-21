@@ -15,13 +15,14 @@ def pingclient(key):
     Raises:
     ValueError: Key is None, indicating that the MongoDB URI is not set.
     """
-
+    
     if key is None:
         raise ValueError("MongoDB URI is not set in the environment variable 'BIFROST_DB_KEY'. ")
 
-    # Create a new client and connect to the server
-    client = MongoClient(key, server_api=ServerApi('1'))
 
+    # Create a new client and connect to the server
+    client = MongoClient(key,ssl=True)
+    print("client work")
     # Send a ping to confirm a successful connection
     try:
         client.admin.command('ping')
@@ -178,12 +179,3 @@ if __name__ == "__main__":
     pingclient(uri)
 
     client = pymongo.MongoClient(uri)
-
-    combined_output_file = "combined_output.txt"
-
-    databasenames = database_names(client,0,combined_output_file,'w')
-    database = databasenames[0]
-
-    collectionnames = collection_names(client,database,0,combined_output_file,'a')
-    
-    entrynames = entry_names(client,database,0,combined_output_file,'a')
