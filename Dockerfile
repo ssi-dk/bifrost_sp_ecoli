@@ -29,7 +29,8 @@ RUN bash install.sh -i LOCAL
 ENV BIFROST_INSTALL_DIR='/app'
 # Use ARG for database key and set at runtime
 ARG BIFROST_DB_KEY=''
+ARG CONDA_ENV_NAME='bifrost_sp_ecoli_v0.0.1'
 
 # Set the default command to run the Python module
-CMD ["python", "cmd_test.py"]
+CMD ["bash", "-c", "BIFROST_DB_KEY=\"$BIFROST_DB_KEY\" conda run -n $CONDA_ENV_NAME python cmd_test.py"]
 

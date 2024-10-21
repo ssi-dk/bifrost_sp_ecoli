@@ -54,7 +54,7 @@ jobs:
       # Step 5: Build Docker image
       - name: Build Docker image
         run: |
-          docker build -t bifrost_sp_ecoli_image .
+          docker build --build-arg BIFROST_DB_KEY="${{ secrets.MONGODB_ATLAS_TEST }}" --build-arg CONDA_ENV_NAME="${{ env.ENV_NAME }}" -t bifrost_sp_ecoli_image .
 
       # Step 6: Run Docker container and execute the command
       - name: Run Docker container
