@@ -48,13 +48,8 @@ jobs:
           LATEST_TAG=$(git describe --exact-match --tag)
           echo "Checking the lastest tag of ecoli_fbi: $LATEST_TAG"
           
-          # Confirm if the commit hash has changed
-          if [ "$CURRENT_COMMIT" != "$LATEST_COMMIT" ]; then
-            echo "Submodule updated to a new commit."
-          else
-            echo "Submodule is already at the latest commit."
-          fi
-          
+          git checkout tags/$LATEST_TAG 
+
       # Step 3: Set environment variables
       - name: Set environment variables
         run: |
