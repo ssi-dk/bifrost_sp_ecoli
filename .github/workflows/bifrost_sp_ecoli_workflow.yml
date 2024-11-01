@@ -45,7 +45,9 @@ jobs:
           echo "Updated commit hash of ecoli_fbi after update: $LATEST_COMMIT"
 
           # print the latest tag of ecoli_fbi
-          LATEST_TAG=$(git describe --exact-match --tag)
+          LATEST_TAG_COMMIT=$(git tag --sort=-creatordate --format '%(refname:short) %(objectname)'|head -1|cut -f2 -d ' ')
+          LATEST_TAG=$(git tag --sort=-creatordate --format '%(refname:short) %(objectname)'|head -1|cut -f1 -d ' ')
+          echo "Checking commit hash for the latest tag of ecoli_fbi: $LATEST_TAG_COMMIT"
           echo "Checking the lastest tag of ecoli_fbi: $LATEST_TAG"
           
           git checkout tags/$LATEST_TAG 
