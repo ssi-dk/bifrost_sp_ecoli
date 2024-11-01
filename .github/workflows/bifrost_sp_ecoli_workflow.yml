@@ -28,14 +28,33 @@ jobs:
       - name: Update submodule
         run: |
           cd bifrost_sp_ecoli/ecoli_fbi
+
+          # Show the current commit hash before updating
+          CURRENT_COMMIT=$(git rev-parse HEAD)
+          echo "Current commit hash of ecoli_fbi before update: $CURRENT_COMMIT"
+          
+          echo "Fetching latest changes from origin"
           git fetch origin
+
+          echo "Switching to the main branch and pulling latest updates"
           git checkout main  # or the specific branch you want to track
           git pull origin main  # pull the latest changes
           
+          # Show the new commit hash after the update
+          LATEST_COMMIT=$(git rev-parse HEAD)
+          echo "Updated commit hash of ecoli_fbi after update: $LATEST_COMMIT"
+
           # print the latest commit of ecoli_fbi
           LATEST_COMMIT=$(git rev-parse HEAD)
           echo "Updated ecoli_fbi to latest commit: $LATEST_COMMIT"
-
+          
+          # Confirm if the commit hash has changed
+          if [ "$CURRENT_COMMIT" != "$LATEST_COMMIT" ]; then
+            echo "Submodule updated to a new commit."
+          else
+            echo "Submodule is already at the latest commit."
+          fi
+          
       # Step 3: Set environment variables
       - name: Set environment variables
         run: |
