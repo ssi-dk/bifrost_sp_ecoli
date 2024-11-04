@@ -51,14 +51,13 @@ jobs:
           echo "Checking commit hash for the latest tag of ecoli_fbi: $LATEST_TAG_COMMIT"
           echo "Checking the lastest tag of ecoli_fbi: $LATEST_TAG"
           
-          echo "test 1" - 
-          git tag
-          echo "test 2"
-          git show-ref --tags -d
-          # echo "test 3"
-          # git describe --abbrev=0 --tags
-          echo "test 4"
-          git ls-remote --tags origin
+          # echo "test 1" - 
+          # git tag
+          # echo "test 2"
+          # git show-ref --tags -d
+          # echo "test 4"
+          # git ls-remote --tags origin
+          # i believe test 2 and 4 order tags alphabetically, not in terms of their creation date
           # echo $(git show-ref --tags -d | cut -f1 -d ' ' | sed 's|.*/||')
           # echo $(git show-ref --tags -d | cut -f2 -d ' ' | sed 's|.*/||')
           # echo "test 4"

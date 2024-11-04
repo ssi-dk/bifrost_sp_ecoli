@@ -68,13 +68,22 @@ git submodule update --init --recursive
 cd bifrost_sp_ecoli/ecoli_fbi || exit
 
 # Fetch the latest changes from the remote repository
-git fetch origin
+git fetch origin --tags
 git checkout main  # or the specific branch you want to track
-git pull origin main
+git pull origin main --tags
 
-# Optionally, echo the latest commit SHA
+# Show the new commit hash after the update
 LATEST_COMMIT=$(git rev-parse HEAD)
-echo "Updated ecoli_fbi to latest commit: $LATEST_COMMIT"
+echo "Updated commit hash of ecoli_fbi after update: $LATEST_COMMIT"
+
+# print the latest tag of ecoli_fbi
+LATEST_TAG_COMMIT=$(git tag --sort=-creatordate --format '%(objectname)'|head -1)
+LATEST_TAG=$(git tag --sort=-creatordate|head -1)
+
+echo "Checking commit hash for the latest tag of ecoli_fbi: $LATEST_TAG_COMMIT"
+echo "Checking the lastest tag of ecoli_fbi: $LATEST_TAG"
+  
+git checkout $LATEST_TAG_COMMIT
 
 # Navigate back to the main project directory
 cd ../../
