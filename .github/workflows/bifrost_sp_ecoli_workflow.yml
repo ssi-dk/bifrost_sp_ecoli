@@ -48,10 +48,16 @@ jobs:
           LATEST_TAG_COMMIT=$(git tag --sort=-creatordate --format '%(objectname)'|head -1)
           LATEST_TAG=$(git tag --sort=-creatordate|head -1)
           
-          # echo "test 1" - git tag - ecoli_fbi.51ea941.01-11-2024
-          # echo "test 2" - git show-ref --tags -d - 51ea9416c35d4f6e9496a4dfd0e6e4c9ad83f6ba refs/tags/ecoli_fbi.51ea941.01-11-2024
-          # echo "test 3" - git describe --abbrev=0 --tags - ecoli_fbi.51ea941.01-11-2024
-          # echo "test 4" - git ls-remote --tags origin - 51ea9416c35d4f6e9496a4dfd0e6e4c9ad83f6ba	refs/tags/ecoli_fbi.51ea941.01-11-2024 \n c57a577e5568623a0f780f581d47a132aa7c3413	refs/tags/ecoli_fbi.c57a577.01-11-2024
+          # echo "test 1" - ecoli_fbi.51ea941.01-11-2024
+          git tag
+          # echo "test 2" - 51ea9416c35d4f6e9496a4dfd0e6e4c9ad83f6ba refs/tags/ecoli_fbi.51ea941.01-11-2024
+          git show-ref --tags -d 
+          # echo "test 3" - ecoli_fbi.51ea941.01-11-2024
+          git describe --abbrev=0 --tags
+          # echo "test 4" - 51ea9416c35d4f6e9496a4dfd0e6e4c9ad83f6ba	refs/tags/ecoli_fbi.51ea941.01-11-2024 \n c57a577e5568623a0f780f581d47a132aa7c3413	refs/tags/ecoli_fbi.c57a577.01-11-2024
+          git ls-remote --tags origin
+          # echo 5"
+          git describe --tags `git rev-list --tags --max-count=1`
           # echo $(git show-ref --tags -d | cut -f1 -d ' ' | sed 's|.*/||')
           # echo $(git show-ref --tags -d | cut -f2 -d ' ' | sed 's|.*/||')
           # echo "test 4"
