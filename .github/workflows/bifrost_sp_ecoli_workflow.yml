@@ -34,11 +34,11 @@ jobs:
           echo "Current commit hash of ecoli_fbi before update: $CURRENT_COMMIT"
           
           echo "Fetching latest changes from origin"
-          git fetch origin
+          git fetch origin --tags
 
           echo "Switching to the main branch and pulling latest updates"
           git checkout main  # or the specific branch you want to track
-          git pull origin main  # pull the latest changes
+          git pull origin main --tags # pull the latest changes
           
           # Show the new commit hash after the update
           LATEST_COMMIT=$(git rev-parse HEAD)
@@ -48,10 +48,14 @@ jobs:
           LATEST_TAG_COMMIT=$(git tag --sort=-creatordate --format '%(objectname)'|head -1)
           LATEST_TAG=$(git tag --sort=-creatordate|head -1)
           
-          # echo "test 1" - git tag - ecoli_fbi.51ea941.01-11-2024
-          # echo "test 2" - git show-ref --tags -d - 51ea9416c35d4f6e9496a4dfd0e6e4c9ad83f6ba refs/tags/ecoli_fbi.51ea941.01-11-2024
-          # echo "test 3" - git describe --abbrev=0 --tags - ecoli_fbi.51ea941.01-11-2024
-          # echo "test 4" - git ls-remote --tags origin - 51ea9416c35d4f6e9496a4dfd0e6e4c9ad83f6ba	refs/tags/ecoli_fbi.51ea941.01-11-2024 \n c57a577e5568623a0f780f581d47a132aa7c3413	refs/tags/ecoli_fbi.c57a577.01-11-2024
+          echo "test 1" - 
+          git tag
+          echo "test 2"
+          git show-ref --tags -d
+          echo "test 3"
+          git describe --abbrev=0 --tags
+          echo "test 4"
+          git ls-remote --tags origin
           # echo $(git show-ref --tags -d | cut -f1 -d ' ' | sed 's|.*/||')
           # echo $(git show-ref --tags -d | cut -f2 -d ' ' | sed 's|.*/||')
           # echo "test 4"
