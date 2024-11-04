@@ -47,6 +47,16 @@ jobs:
           # print the latest tag of ecoli_fbi
           LATEST_TAG_COMMIT=$(git tag --sort=-creatordate --format '%(objectname)'|head -1)
           LATEST_TAG=$(git tag --sort=-creatordate --format '%(refname:short)'|head -1)
+          echo "test 1"
+          git tag
+          echo "test 2"
+          git show-ref --tags -d
+          echo "test 3"
+          git describe --abbrev=0 --tags
+          echo "test 4"
+          git ls-remote --tags origin
+          echo "test 5"
+          git show `git describe` --pretty=fuller
           echo "Checking commit hash for the latest tag of ecoli_fbi: $LATEST_TAG_COMMIT"
           echo "Checking the lastest tag of ecoli_fbi: $LATEST_TAG"
           
