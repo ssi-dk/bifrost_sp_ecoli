@@ -47,13 +47,16 @@ jobs:
           # print the latest tag of ecoli_fbi
           LATEST_TAG_COMMIT=$(git tag --sort=-creatordate --format '%(objectname)'|head -1)
           LATEST_TAG=$(git tag --sort=-creatordate|head -1)
+                    
+          echo "Checking commit hash for the latest tag of ecoli_fbi: $LATEST_TAG_COMMIT"
+          echo "Checking the lastest tag of ecoli_fbi: $LATEST_TAG"
           
           echo "test 1" - 
           git tag
           echo "test 2"
           git show-ref --tags -d
-          echo "test 3"
-          git describe --abbrev=0 --tags
+          # echo "test 3"
+          # git describe --abbrev=0 --tags
           echo "test 4"
           git ls-remote --tags origin
           # echo $(git show-ref --tags -d | cut -f1 -d ' ' | sed 's|.*/||')
@@ -61,10 +64,7 @@ jobs:
           # echo "test 4"
           # echo $(git ls-remote --tags origin | cut -f1 | head -1 | sed 's|.*/||')
           # echo $(git ls-remote --tags origin | cut -f2 | head -1 | sed 's|.*/||')
-          
-          echo "Checking commit hash for the latest tag of ecoli_fbi: $LATEST_TAG_COMMIT"
-          echo "Checking the lastest tag of ecoli_fbi: $LATEST_TAG"
-          
+
           git checkout $LATEST_TAG_COMMIT 
 
       # Step 3: Set environment variables
