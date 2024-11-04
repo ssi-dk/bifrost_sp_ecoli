@@ -48,17 +48,16 @@ jobs:
           LATEST_TAG_COMMIT=$(git tag --sort=-creatordate --format '%(objectname)'|head -1)
           LATEST_TAG=$(git tag --sort=-creatordate|head -1)
           
-          #echo "test 1" - git tag - ecoli_fbi.51ea941.01-11-2024
-          #echo "test 2" - git show-ref --tags -d - 51ea9416c35d4f6e9496a4dfd0e6e4c9ad83f6ba refs/tags/ecoli_fbi.51ea941.01-11-2024
-          #echo "test 3" - git describe --abbrev=0 --tags - ecoli_fbi.51ea941.01-11-2024
-          #echo "test 4" - git ls-remote --tags origin - 51ea9416c35d4f6e9496a4dfd0e6e4c9ad83f6ba	refs/tags/ecoli_fbi.51ea941.01-11-2024 \n c57a577e5568623a0f780f581d47a132aa7c3413	refs/tags/ecoli_fbi.c57a577.01-11-2024
-          echo $(git show-ref --tags -d | cut -f1 -d ' ' | sed 's|.*/||')
-          echo $(git show-ref --tags -d | cut -f2 -d ' ' | sed 's|.*/||')
-          echo "test 4"
-          echo $(git ls-remote --tags origin | cut -f1 | head -1 | awk -F'/' '{print $NF}')
-          echo $(git ls-remote --tags origin | cut -f2 | head -1 | sed 's|.*/||')
-          echo $(git ls-remote --tags origin | cut -f2 | head -1 | awk -F'/' '{print $NF}')
-          echo $(git ls-remote --tags origin | cut -f2 | head -1 | sed 's|.*/||')
+          # echo "test 1" - git tag - ecoli_fbi.51ea941.01-11-2024
+          # echo "test 2" - git show-ref --tags -d - 51ea9416c35d4f6e9496a4dfd0e6e4c9ad83f6ba refs/tags/ecoli_fbi.51ea941.01-11-2024
+          # echo "test 3" - git describe --abbrev=0 --tags - ecoli_fbi.51ea941.01-11-2024
+          # echo "test 4" - git ls-remote --tags origin - 51ea9416c35d4f6e9496a4dfd0e6e4c9ad83f6ba	refs/tags/ecoli_fbi.51ea941.01-11-2024 \n c57a577e5568623a0f780f581d47a132aa7c3413	refs/tags/ecoli_fbi.c57a577.01-11-2024
+          # echo $(git show-ref --tags -d | cut -f1 -d ' ' | sed 's|.*/||')
+          # echo $(git show-ref --tags -d | cut -f2 -d ' ' | sed 's|.*/||')
+          # echo "test 4"
+          # echo $(git ls-remote --tags origin | cut -f1 | head -1 | sed 's|.*/||')
+          # echo $(git ls-remote --tags origin | cut -f2 | head -1 | sed 's|.*/||')
+          
           echo "Checking commit hash for the latest tag of ecoli_fbi: $LATEST_TAG_COMMIT"
           echo "Checking the lastest tag of ecoli_fbi: $LATEST_TAG"
           
