@@ -28,13 +28,43 @@ jobs:
       - name: Update submodule
         run: |
           cd bifrost_sp_ecoli/ecoli_fbi
-          git fetch origin
-          git checkout main  # or the specific branch you want to track
-          git pull origin main  # pull the latest changes
+
+          # Show the current commit hash before updating
+          CURRENT_COMMIT=$(git rev-parse HEAD)
+          echo "Current commit hash of ecoli_fbi before update: $CURRENT_COMMIT"
           
-          # print the latest commit of ecoli_fbi
+          echo "Fetching latest changes from origin"
+          git fetch origin --tags
+
+          echo "Switching to the main branch and pulling latest updates"
+          git checkout main  # or the specific branch you want to track
+          git pull origin main --tags # pull the latest changes
+          
+          # Show the new commit hash after the update
           LATEST_COMMIT=$(git rev-parse HEAD)
-          echo "Updated ecoli_fbi to latest commit: $LATEST_COMMIT"
+          echo "Updated commit hash of ecoli_fbi after update: $LATEST_COMMIT"
+
+          # print the latest tag of ecoli_fbi
+          LATEST_TAG_COMMIT=$(git tag --sort=-creatordate --format '%(objectname)'|head -1)
+          LATEST_TAG=$(git tag --sort=-creatordate|head -1)
+                    
+          echo "Checking commit hash for the latest tag of ecoli_fbi: $LATEST_TAG_COMMIT"
+          echo "Checking the lastest tag of ecoli_fbi: $LATEST_TAG"
+          
+          # echo "test 1" - 
+          # git tag
+          # echo "test 2"
+          # git show-ref --tags -d
+          # echo "test 4"
+          # git ls-remote --tags origin
+          # i believe test 2 and 4 order tags alphabetically, not in terms of their creation date
+          # echo $(git show-ref --tags -d | cut -f1 -d ' ' | sed 's|.*/||')
+          # echo $(git show-ref --tags -d | cut -f2 -d ' ' | sed 's|.*/||')
+          # echo "test 4"
+          # echo $(git ls-remote --tags origin | cut -f1 | head -1 | sed 's|.*/||')
+          # echo $(git ls-remote --tags origin | cut -f2 | head -1 | sed 's|.*/||')
+
+          git checkout $LATEST_TAG_COMMIT 
 
       # Step 3: Set environment variables
       - name: Set environment variables

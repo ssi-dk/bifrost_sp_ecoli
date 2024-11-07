@@ -93,7 +93,7 @@ rule run_ecolityping:
         f"{component['name']}/benchmarks/{rule_name}.benchmark",
     input:  # files
         rules.check_requirements.output.check_file,
-        reads = reads,
+        reads = sample['categories']['paired_reads']['summary']['data'],
         db = f"{resources_dir}/{component['resources']['db']}",
     params:  # values
         sample_id = sample.name,
@@ -106,7 +106,6 @@ rule run_ecolityping:
         # Type
         python3 ecoli_fbi/ecolityping.py -i {params.sample_id} -R1 {input.reads[0]} -R2 {input.reads[1]} -o {output.folder} -db {input.db} -k {params.kma_path} --update {params.update} 1> {log.out_file} 2> {log.err_file}
         """
-        #python3 ecolityping.py -i test/SRR26510933 -R1 test/SRR26510933_1.fastq.gz -R2 test/SRR26510933_2.fastq.gz -db db -k /home/rahenriksen443/miniconda3/envs/ecoli_pipeline/bin -u yes -o results/
 
 rule_name = "run_postecolityping"
 rule run_postecolityping:
