@@ -98,7 +98,7 @@ rule run_ecolityping:
     params:  # values
         sample_id = sample.name,
         update = "no",
-        kma_path = #TODO
+        kma_path = f"{os.environ['CONDA_PREFIX']}/bin"
     output:
         folder = directory(rules.setup.params.folder + "/ecoli_analysis"),
     shell:
