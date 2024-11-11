@@ -131,25 +131,24 @@ rule run_postecolityping:
         """
 
 
-# rule_name = "run_qc_ecoli_summary"
-# rule run_qc_ecoli_summary:
-#     message:
-#         f"Running step:{rule_name}"
-#     log:
-#         out_file = f"{component['name']}/log/{rule_name}.out.log",
-#         err_file = f"{component['name']}/log/{rule_name}.err.log",
-#     benchmark:
-#         f"{component['name']}/benchmarks/{rule_name}.benchmark",
-#     input:  # files
-#         rules.check_requirements.output.check_file,
-#     output:
-#         folder = directory(rules.setup.params.folder + "/ecoli_analysis"),
-#     shell:
-#         """
-#         # Summarize
-#         python3 ecoli_fbi/qc_ecoli_summary.py -i {output.folder} -o {output.folder} 1> {log.out_file} 2> {log.err_file}
-#         """
-
+rule_name = "run_qc_ecoli_summary"
+rule run_qc_ecoli_summary:
+    message:
+        f"Running step:{rule_name}"
+    log:
+        out_file = f"{component['name']}/log/{rule_name}.out.log",
+        err_file = f"{component['name']}/log/{rule_name}.err.log",
+    benchmark:
+        f"{component['name']}/benchmarks/{rule_name}.benchmark",
+    input:  # files
+        rules.check_requirements.output.check_file,
+    output:
+        folder = directory(rules.setup.params.folder + "/ecoli_analysis"),
+    shell:
+        """
+        # Summarize
+        python3 ecoli_fbi/qc_ecoli_summary.py -i {output.folder} -o {output.folder} 1> {log.out_file} 2> {log.err_file}
+        """
 
 #* Dynamic section: end ****************************************************************************
 
