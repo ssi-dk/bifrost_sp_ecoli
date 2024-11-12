@@ -1,7 +1,7 @@
 import pytest
 from bifrostlib import datahandling
 from bifrostlib import database_interface
-from bifrost_whats_my_species import launcher
+from bifrost_sp_ecoli import launcher
 import pymongo
 import os
 import shutil
@@ -22,7 +22,7 @@ def test_cwd():
 
 
 class TestBifrostMinReadCheck:
-    component_name = "whats_my_species__v2.2.11"
+    component_name = "bifrost_sp_ecoli_v.0.0.1"
     # component_name = component_name + "__171019"
 
     bifrost_install_dir = os.environ["BIFROST_INSTALL_DIR"]
