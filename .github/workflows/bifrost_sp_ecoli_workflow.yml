@@ -53,10 +53,20 @@ jobs:
           
           git checkout $LATEST_TAG_COMMIT 
 
+      # Step 4: Extract version from __init__.py and set ENV_NAME
+      - name: Set ENV_NAME
+        run: |
+          VERSION=$(grep "__version__" bifrost_sp_ecoli/__init__.py | cut -d "'" -f 2)
+          REPO_NAME=$(basename "${{ github.workspace }}")
+          ENV_NAME="${REPO_NAME}_v${VERSION}"
+          # Echo the ENV_NAME to the log for debugging
+          echo "Setting ENV_NAME to: $ENV_NAME"
+          echo "ENV_NAME=$ENV_NAME" >> $GITHUB_ENV
+      
       # Step 5: Build Docker image
       - name: Build docker image
         run: |
-          docker build --build-arg BUILD_ENV=test -t ${{ github.event.repository.name }} .
+          docker build --build-arg CONDA_ENV_NAME="${{ env.ENV_NAME }}" -t bifrost_sp_ecoli_image .
 
       - name: Get_tests_data
         run: >
@@ -66,10 +76,10 @@ jobs:
           
       - name: Run_tests
         run: >
-          docker run 
-          -w /bifrost/components/${{ github.event.repository.name }}
-          -v /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}/bifrost_test_data:/bifrost/test_data
-          --entrypoint "python3"
-          -e BIFROST_DB_KEY=${{ secrets.MONGODB_ATLAS_CONNECTION }}/bifrost_test 
-          ${{ github.event.repository.name }} 
+          docker run
+          --env BIFROST_DB_KEY=${{ secrets.MONGODB_ATLAS_CONNECTION }}/bifrost_test \
+          --env CONDA_ENV_NAME="${{ env.ENV_NAME }}" \
+          -w /bifrost/components/${{ github.event.repository.name }} \
+          -v /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}/bifrost_test_data:/bifrost/test_data \
+          bifrost_sp_ecoli_image \
           -m pytest
