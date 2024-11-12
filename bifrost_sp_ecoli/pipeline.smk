@@ -16,6 +16,7 @@ try:
     #print(config)
     sample_ref = SampleReference(_id=config.get('sample_id', None), name=config.get('sample_name', None))
     sample:Sample = Sample.load(sample_ref) # schema 2.1
+    sample_id=sample['name']
     if sample is None:
         raise Exception("invalid sample passed")
     component_ref = ComponentReference(name=config['component_name'])
@@ -96,7 +97,7 @@ rule run_ecolityping:
         reads = sample['categories']['paired_reads']['summary']['data'],
         db = f"{resources_dir}/{component['resources']['db']}",
     params:  # values
-        sample_id = sample.name,
+        sample_id = sample_id,
         update = "no",
         kma_path = f"{os.environ['CONDA_PREFIX']}/bin"
     output:
@@ -120,10 +121,11 @@ rule run_postecolityping:
         rules.check_requirements.output.check_file,
         reads = sample['categories']['paired_reads']['summary']['data'],
     params:  # values
-        sample_id = sample.name,
+        sample_id = sample_id,
     output:
         folder = directory(rules.setup.params.folder + "/ecoli_analysis"),
-        _file = f"{folder}/{sample_id}.json"
+        _file = f"{rules.run_ecolityping.output.folder}/{sample_id}.json",
+	_tsv = f"{rules.run_ecolityping.output.folder}/{sample_id}.tsv"
     shell:
         """
         # Process
@@ -167,7 +169,7 @@ rule datadump:
         #* Dynamic section: start ******************************************************************
         # TODO
         #dtartrate = rules.run_dtartrate.output._file,  # Needs to be output of final rule
-        ecoli_analysis_output_file = run_postecolityping.output._file
+        ecoli_analysis_output_file = rules.run_postecolityping.output._file
         #subspecies = rules.run_subspecies.output._file  # Needs to be output of final rule
         #* Dynamic section: end ********************************************************************
     output:
