@@ -68,11 +68,6 @@ jobs:
         run: |
           docker build --build-arg CONDA_ENV_NAME="${{ env.ENV_NAME }}" -t bifrost_sp_ecoli_image .
 
-      # Verify the Docker image by listing all images
-      - name: List docker images
-        run: |
-          docker images
-      
       - name: Get_tests_data
         run: |
           git clone https://github.com/ssi-dk/bifrost_test_data.git;
