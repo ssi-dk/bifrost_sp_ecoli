@@ -69,20 +69,19 @@ jobs:
           docker build --build-arg CONDA_ENV_NAME="${{ env.ENV_NAME }}" -t bifrost_sp_ecoli_image .
 
       # Verify the Docker image by listing all images
-      - name: List Docker images
-        run: docker images
-
+      - name: List docker images
+        run: |
+          docker images
+      
       - name: Get_tests_data
         run: |
           git clone https://github.com/ssi-dk/bifrost_test_data.git;
           cd bifrost_test_data/samples;
           bash download_S1.sh
-          
-      - name: Run_tests
+        
+        - name: Run_tests
         run: |
-          IMAGE_ID=$(docker images -q bifrost_sp_ecoli_image)
-          echo "Running tests with Docker Image ID: $IMAGE_ID"
-          docker run
+          docker run \
           --env BIFROST_DB_KEY=${{ secrets.MONGODB_ATLAS_CONNECTION }}/bifrost_test \
           --env CONDA_ENV_NAME="${{ env.ENV_NAME }}" \
           -w /bifrost/components/${{ github.event.repository.name }} \
