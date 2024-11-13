@@ -66,7 +66,11 @@ jobs:
       # Step 5: Build Docker image
       - name: Build docker image
         run: |
-          docker build --no-cache --build-arg BIFROST_DB_KEY="${{ secrets.MONGODB_ATLAS_CONNECTION }}" --build-arg CONDA_ENV_NAME="${{ env.ENV_NAME }}" -t bifrost_sp_ecoli_image .
+          docker build --no-cache \
+          --build-arg BIFROST_DB_KEY="${{ secrets.MONGODB_ATLAS_CONNECTION }}" \
+          --build-arg CONDA_ENV_NAME="${{ env.ENV_NAME }}" \
+          --build-arg BIFROST_INSTALL_DIR="${{ github.workspace }}" \
+          -t bifrost_sp_ecoli_image .
       
       - name: Get_tests_data
         run: |
@@ -85,5 +89,6 @@ jobs:
           docker run \
           -v /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}/bifrost_test_data:/bifrost/test_data \
           --env BIFROST_DB_KEY=${{ secrets.MONGODB_ATLAS_CONNECTION }} \
+          --env BIFROST_INSTALL_DIR=${{ github.workspace }} \
           --env CONDA_ENV_NAME="${{ env.ENV_NAME }}" \
           bifrost_sp_ecoli_image 
