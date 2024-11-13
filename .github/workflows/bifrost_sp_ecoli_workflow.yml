@@ -81,4 +81,4 @@ jobs:
           -w /bifrost/components/${{ github.event.repository.name }} \
           -v /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}/bifrost_test_data:/bifrost/test_data \
           ${{ github.event.repository.name }} \
-          -m pytest
+          pytest
