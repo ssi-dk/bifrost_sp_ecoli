@@ -50,6 +50,11 @@ class TestBifrostMinReadCheck:
 
     @classmethod
     def setup_class(cls):
+
+        bifrost_install_dir = os.environ["BIFROST_INSTALL_DIR"]
+        print(f"BIFROST_DB_KEY: {bifrost_install_dir}")
+        print(f"BIFROST_DB_KEY: {os.environ.get('BIFROST_DB_KEY')}")
+        exit(1)
         client = pymongo.MongoClient(os.environ["BIFROST_DB_KEY"])
         db = client.get_database()
         cls.clear_all_collections(db)
