@@ -85,5 +85,5 @@ jobs:
           docker run \
           -v /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}/bifrost_test_data:/bifrost/test_data \
           --env BIFROST_DB_KEY=${{ secrets.MONGODB_ATLAS_CONNECTION }} \
-          --env CONDA_ENV_NAME="${{ env.ENV_NAME }}" \
-          bifrost_sp_ecoli_image
+          bifrost_sp_ecoli_image \
+          bash -c "conda list"
