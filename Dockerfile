@@ -32,5 +32,10 @@ RUN bash install.sh -i LOCAL
 ARG CONDA_ENV_NAME=""
 ENV CONDA_ENV_NAME="${CONDA_ENV_NAME}"
 
+# Set environment variable for BIFROST_INSTALL_DIR from GitHub Actions
+ARG BIFROST_INSTALL_DIR=""
+ENV BIFROST_INSTALL_DIR="${BIFROST_INSTALL_DIR}"
+
+
 # Set the default command to activate the Conda environment and run pytest
 CMD ["/bin/bash", "-c", "source /opt/conda/etc/profile.d/conda.sh && conda activate ${CONDA_ENV_NAME} && python -m pytest"]

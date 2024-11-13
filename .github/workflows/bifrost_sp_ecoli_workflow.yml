@@ -16,7 +16,9 @@ jobs:
       matrix:
         os: ["ubuntu-latest"]
         python-version: ["3.11"]
-  
+    env:
+      BIFROST_INSTALL_DIR: ${{ github.workspace }}  # Set the install directory to the workspace
+
     steps:
       # Step 1: Checkout repository
       - name: Checkout repository
@@ -52,6 +54,11 @@ jobs:
           echo "Checking the lastest tag of ecoli_fbi: $LATEST_TAG"
           
           git checkout $LATEST_TAG_COMMIT 
+      
+      - name: Check if install directory exists
+        run: |
+          echo "Install directory: $BIFROST_INSTALL_DIR"
+          ls -l $BIFROST_INSTALL_DIR
 
       # Step 4: Extract version from __init__.py and set ENV_NAME
       - name: Set ENV_NAME

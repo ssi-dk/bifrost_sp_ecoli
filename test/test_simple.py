@@ -1,6 +1,10 @@
 import pytest
-import os
+from bifrostlib import datahandling
+from bifrostlib import database_interface
+from bifrost_sp_ecoli import launcher
 import pymongo
+import os
+import shutil
 
 # Test to check database connection using the BIFROST_DB_KEY
 @pytest.fixture
@@ -28,10 +32,8 @@ def test_install_dir():
 
 # A simple test class to run these tests
 class TestBifrostSetup:
-    #print("test connection")
-    #def test_connection(self, test_connection):
-    #    pass
-
+    component_name = "bifrost_sp_ecoli_v.0.0.1"
+    # component_name = component_name + "__171019"
     print("test install dir")
     def test_install_dir(self, test_install_dir):
         # This is handled by the fixture, so just a placeholder test
