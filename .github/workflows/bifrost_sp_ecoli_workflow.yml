@@ -4,7 +4,7 @@ on:
   push:
     branches: ["main"]
   pull_request:
-    branches: ["main"]
+    branches: ["main","EcoliDev"]
   repository_dispatch:  # webhook event to trigger this action workflow upon push to the submodule ecoli_fbi 
     types: 
       - ecoli-fbi-webhook 
@@ -66,7 +66,7 @@ jobs:
       # Step 5: Build Docker image
       - name: Build docker image
         run: |
-          docker build --build-arg CONDA_ENV_NAME="${{ env.ENV_NAME }}" -t bifrost_sp_ecoli_image .
+          docker build --build-arg BUILD_ENV=test -t ${{ github.event.repository.name }} .
 
       - name: Get_tests_data
         run: |
@@ -78,8 +78,7 @@ jobs:
         run: |
           docker run \
           --env BIFROST_DB_KEY=${{ secrets.MONGODB_ATLAS_CONNECTION }}/bifrost_test \
-          --env CONDA_ENV_NAME="${{ env.ENV_NAME }}" \
           -w /bifrost/components/${{ github.event.repository.name }} \
           -v /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}/bifrost_test_data:/bifrost/test_data \
-          bifrost_sp_ecoli_image \
-          bash -c "conda list; pytest"
+          ${{ github.event.repository.name }} \
+          -m pytest

@@ -31,5 +31,4 @@ ENV BIFROST_INSTALL_DIR='/app'
 ARG BIFROST_DB_KEY=''
 
 # Set the default command to run the Python module
-CMD ["bash", "-c", "BIFROST_DB_KEY=\"$BIFROST_DB_KEY\" conda run -n $CONDA_ENV_NAME python cmd_test.py"]
-
+CMD ["python3", "-m", "bifrost_sp_ecoli", "--help"]
