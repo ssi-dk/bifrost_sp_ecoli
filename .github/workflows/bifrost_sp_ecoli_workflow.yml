@@ -68,15 +68,11 @@ jobs:
         run: |
           docker build --build-arg BUILD_ENV=test -t ${{ github.event.repository.name }} .
       
-      - name: Inspect docker image
-        run: |
-          docker image inspect ${{ github.event.repository.name }}
-      
       - name: Get_tests_data
         run: |
           git clone https://github.com/ssi-dk/bifrost_test_data.git;
           cd bifrost_test_data/samples;
-          bash download_S1.sh
+          bash download_S1.sh > /dev/null 2>&1
 
       - name: List all files recursively
         run: |
@@ -86,8 +82,10 @@ jobs:
 
       - name: Run_tests
         run: |
-          docker run \
-          --env BIFROST_DB_KEY=${{ secrets.MONGODB_ATLAS_CONNECTION }}/bifrost_test \
+          docker run \ 
+          -w /bifrost/components/${{ github.event.repository.name }} \
           -v /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}/bifrost_test_data:/bifrost/test_data \
+          --entrypoint "python3" \
+          -e BIFROST_DB_KEY=${{ secrets.MONGODB_ATLAS_CONNECTION }}/bifrost_test \
           ${{ github.event.repository.name }} \
-          pytest /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}/test/test_simple.py
+          -m pytest
