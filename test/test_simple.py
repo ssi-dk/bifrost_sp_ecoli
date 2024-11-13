@@ -20,7 +20,8 @@ def test_cwd():
     print(f"bifrost cwd: {bifrost_install_dir}")
     assert bifrost_install_dir != ""
 
-
+# Main Test Class (Runs only if preliminary tests pass)
+@pytest.mark.dependency(depends=["test_connection", "test_cwd"])
 class TestBifrostMinReadCheck:
     component_name = "bifrost_sp_ecoli_v.0.0.1"
     # component_name = component_name + "__171019"
@@ -54,7 +55,6 @@ class TestBifrostMinReadCheck:
         bifrost_install_dir = os.environ["BIFROST_INSTALL_DIR"]
         print(f"BIFROST_DB_KEY: {bifrost_install_dir}")
         print(f"BIFROST_DB_KEY: {os.environ.get('BIFROST_DB_KEY')}")
-        exit(1)
         client = pymongo.MongoClient(os.environ["BIFROST_DB_KEY"])
         db = client.get_database()
         cls.clear_all_collections(db)
