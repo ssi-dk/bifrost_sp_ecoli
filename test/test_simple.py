@@ -28,10 +28,9 @@ def test_install_dir():
 
 # A simple test class to run these tests
 class TestBifrostSetup:
-    print("test connection")
-    def test_connection(self, test_connection):
-        # This is handled by the fixture, so just a placeholder test
-        pass
+    #print("test connection")
+    #def test_connection(self, test_connection):
+    #    pass
 
     print("test install dir")
     def test_install_dir(self, test_install_dir):
