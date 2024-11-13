@@ -25,12 +25,19 @@ class TestBifrostMinReadCheck:
     component_name = "bifrost_sp_ecoli_v.0.0.1"
     # component_name = component_name + "__171019"
 
+    print("WITHIN MY TESTBIRFOST CLASS")
+
     bifrost_install_dir = os.environ["BIFROST_INSTALL_DIR"]
 
     # test_dir = "/bifrost/test_data/output/test__whats_my_species/"
     test_dir = f"{bifrost_install_dir}/bifrost/test_data/output/test__whats_my_species/"
     r1 = f"{bifrost_install_dir}/bifrost/test_data/samples/S1_R1.fastq.gz"
     r2 = f"{bifrost_install_dir}/bifrost/test_data/samples/S1_R2.fastq.gz"
+    
+    print(f"bifrost cwd: {test_dir}")
+    print(f"bifrost cwd: {r1}")
+    print(f"bifrost cwd: {r2}")
+    
     json_entries = [
         {
             "_id": {"$oid": "000000000000000000000001"},
