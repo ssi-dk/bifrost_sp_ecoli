@@ -71,7 +71,13 @@ jobs:
       - name: Inspect docker image
         run: |
           docker image inspect ${{ github.event.repository.name }}
-            
+      
+      - name: List files in test directory
+        run: |
+          PWD_VALUE=$(pwd)  # Capture the current directory into the PWD_VALUE variable
+          echo "PWD_VALUE=$PWD_VALUE" >> $GITHUB_ENV  # Set the PWD_VALUE as an environment variable
+          ls -lh $PWD_VALUE  # Use the PWD_VALUE variable to list files in the current directory
+
       - name: Get_tests_data
         run: |
           pwd
@@ -81,12 +87,12 @@ jobs:
 
       - name: List all files recursively
         run: |
-          find /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }} -type f -exec ls -lh {} \;
+          find /home/runner/work/${{ github.event.repository.name }} -type f -exec ls -lh {} \;
 
       - name: Run_tests
         run: |
           docker run \
           --env BIFROST_DB_KEY=${{ secrets.MONGODB_ATLAS_CONNECTION }}/bifrost_test \
-          -v /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}/bifrost_test_data:/bifrost/test_data \
+          -v /home/runner/work/${{ github.event.repository.name }}/bifrost_test_data:/bifrost/test_data \
           ${{ github.event.repository.name }} \
-          bash -c "pip list && pytest /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}/test"
+          bash -c "pip list && pytest /home/runner/work/${{ github.event.repository.name }}/test/test_simple.py"
