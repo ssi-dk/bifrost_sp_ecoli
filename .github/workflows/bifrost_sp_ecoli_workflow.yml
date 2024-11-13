@@ -73,7 +73,11 @@ jobs:
           git clone https://github.com/ssi-dk/bifrost_test_data.git;
           cd bifrost_test_data/samples;
           bash download_S1.sh
-          
+      
+      - name: List files in test directory
+        run: |
+          ls -lh /bifrost/components/${{ github.event.repository.name }}
+
       - name: Run_tests
         run: |
           docker run \
@@ -81,4 +85,4 @@ jobs:
           -w /bifrost/components/${{ github.event.repository.name }} \
           -v /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}/bifrost_test_data:/bifrost/test_data \
           ${{ github.event.repository.name }} \
-          pytest -v
+          bash -c "pip list && pytest /bifrost/components/${{ github.event.repository.name }}/test/test_*.py"
