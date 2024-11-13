@@ -28,10 +28,9 @@ RUN /opt/conda/bin/conda init bash
 # Install the tool using the install script
 RUN bash install.sh -i LOCAL
 
-# Set environment variables
-ENV BIFROST_INSTALL_DIR='/app'
-# Use ARG for database key and set at runtime
-ARG BIFROST_DB_KEY=''
+# Set environment variable for Conda environment name
+ARG CONDA_ENV_NAME=""
+ENV CONDA_ENV_NAME="${CONDA_ENV_NAME}"
 
-# Set the default command to run the Python module
-CMD ["python", "-m", "bifrost_sp_ecoli", "--help"]
+# Set the default command to activate the Conda environment and run pytest
+CMD ["/bin/bash", "-c", "source /opt/conda/etc/profile.d/conda.sh && conda activate ${CONDA_ENV_NAME} && python -m pytest"]
