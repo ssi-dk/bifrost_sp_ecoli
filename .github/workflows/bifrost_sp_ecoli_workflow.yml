@@ -87,4 +87,4 @@ jobs:
           --env BIFROST_DB_KEY=${{ secrets.MONGODB_ATLAS_CONNECTION }} \
           --env CONDA_ENV_NAME="${{ env.ENV_NAME }}" \
           bifrost_sp_ecoli_image \
-          bash -c "conda activate $CONDA_ENV_NAME && conda list"
+          bash -c "source /opt/conda/etc/profile.d/conda.sh && conda activate $CONDA_ENV_NAME && conda list"
