@@ -30,7 +30,7 @@ class TestBifrostMinReadCheck:
     bifrost_install_dir = os.environ["BIFROST_INSTALL_DIR"]
 
     # test_dir = "/bifrost/test_data/output/test__whats_my_species/"
-    test_dir = f"{bifrost_install_dir}/bifrost/test_data/output/test__whats_my_species/"
+    test_dir = f"{bifrost_install_dir}/bifrost/test_data/output/test_bifrost_sp_ecoli/"
     r1 = f"{bifrost_install_dir}/bifrost/test_data/samples/S1_R1.fastq.gz"
     r2 = f"{bifrost_install_dir}/bifrost/test_data/samples/S1_R2.fastq.gz"
     
