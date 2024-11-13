@@ -8,14 +8,16 @@ WORKDIR /app
 
 # Install app dependencies and git necessary for submodules when using info from ecoli_fbi github repository
 RUN apt-get update && apt-get install -y git  && \
-/opt/conda/bin/conda install -c conda-forge pytest
+    /opt/conda/bin/conda install -c conda-forge pytest 
+
+RUN pip install bifrostlib
 
 # Copy the entire repository into the container
 COPY . .
 
 # Copy the install.sh and environment.yml into the container
 COPY install.sh .
-#COPY environment.yml .
+COPY environment.yml .
 
 # Ensure install.sh is executable
 RUN chmod +x install.sh
