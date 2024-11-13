@@ -78,7 +78,7 @@ jobs:
         run: |
           docker run \
           --env BIFROST_DB_KEY=${{ secrets.MONGODB_ATLAS_CONNECTION }}/bifrost_test \
-          -w /bifrost/components/${{ github.event.repository.name }} \
+          -w ${{ github.event.repository.name }} \
           -v /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}/bifrost_test_data:/bifrost/test_data \
           ${{ github.event.repository.name }} \
-          pytest
+          pytest -v
