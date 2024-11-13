@@ -2,7 +2,7 @@ name: bifrost sp ecoli workflow
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main","EcoliDev"]
   pull_request:
     branches: ["main","EcoliDev"]
   repository_dispatch:  # webhook event to trigger this action workflow upon push to the submodule ecoli_fbi 
