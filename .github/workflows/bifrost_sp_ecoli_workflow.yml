@@ -67,16 +67,26 @@ jobs:
       - name: Build docker image
         run: |
           docker build --build-arg BUILD_ENV=test -t ${{ github.event.repository.name }} .
-
+      
+      - name: Inspect docker image
+        run: |
+          docker image inspect ${{ github.event.repository.name }}
+            
       - name: Get_tests_data
         run: |
+          pwd
           git clone https://github.com/ssi-dk/bifrost_test_data.git;
           cd bifrost_test_data/samples;
           bash download_S1.sh
       
       - name: List files in test directory
         run: |
-          ls -lh /home/runner/work/${{ github.event.repository.name }}
+          ls -lh /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}
+          pwd
+
+      - name: List all files recursively
+        run: |
+          find /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }} -type f -exec ls -lh {} \;
 
       - name: Run_tests
         run: |
