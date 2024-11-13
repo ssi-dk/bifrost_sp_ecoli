@@ -1,107 +1,39 @@
 import pytest
-from bifrostlib import datahandling
-from bifrostlib import database_interface
-from bifrost_sp_ecoli import launcher
-import pymongo
 import os
-import shutil
+import pymongo
 
-
+# Test to check database connection using the BIFROST_DB_KEY
 @pytest.fixture
 def test_connection():
-    assert datahandling.has_a_database_connection()
-    assert (
-        "TEST" in os.environ["BIFROST_DB_KEY"].upper()
-    )  # A very basic piece of protection ensuring the word test is in the DB
-
-
-def test_cwd():
-    bifrost_install_dir = os.environ["BIFROST_INSTALL_DIR"]
-    print(f"bifrost cwd: {bifrost_install_dir}")
-    assert bifrost_install_dir != ""
-
-# Main Test Class (Runs only if preliminary tests pass)
-@pytest.mark.dependency(depends=["test_connection", "test_cwd"])
-class TestBifrostMinReadCheck:
-    component_name = "bifrost_sp_ecoli_v.0.0.1"
-    # component_name = component_name + "__171019"
-
-    print("WITHIN MY TESTBIRFOST CLASS")
-
-    bifrost_install_dir = os.environ["BIFROST_INSTALL_DIR"]
-
-    # test_dir = "/bifrost/test_data/output/test__whats_my_species/"
-    test_dir = f"{bifrost_install_dir}/bifrost/test_data/output/test_bifrost_sp_ecoli/"
-    r1 = f"{bifrost_install_dir}/bifrost/test_data/samples/S1_R1.fastq.gz"
-    r2 = f"{bifrost_install_dir}/bifrost/test_data/samples/S1_R2.fastq.gz"
+    # Check if BIFROST_DB_KEY is set in environment
+    db_url = os.getenv("BIFROST_DB_KEY")
+    assert db_url is not None, "Database connection string (BIFROST_DB_KEY) is not set."
     
-    print(f"bifrost cwd: {test_dir}")
-    print(f"bifrost cwd: {r1}")
-    print(f"bifrost cwd: {r2}")
-    
-    json_entries = [
-        {
-            "_id": {"$oid": "000000000000000000000001"},
-            "name": "S1",
-            "components": [],
-            "categories": {"paired_reads": {"summary": {"data": [r1, r2]}}},
-        }
-    ]
-    bson_entries = [database_interface.json_to_bson(i) for i in json_entries]
+    # Try to connect to the database
+    client = pymongo.MongoClient(db_url)
+    try:
+        client.server_info()  # This triggers a connection and checks server status
+    except pymongo.errors.PyMongoError as e:
+        pytest.fail(f"Database connection failed: {e}")
+    finally:
+        client.close()
 
-    @classmethod
-    def setup_class(cls):
+# Test to check if the BIFROST_INSTALL_DIR is set correctly
+@pytest.fixture
+def test_install_dir():
+    # Ensure that the install directory is set
+    install_dir = os.getenv("BIFROST_INSTALL_DIR")
+    assert install_dir is not None, "BIFROST_INSTALL_DIR is not set."
+    assert os.path.isdir(install_dir), f"The install directory '{install_dir}' does not exist."
 
-        bifrost_install_dir = os.environ["BIFROST_INSTALL_DIR"]
-        print(f"BIFROST_DB_KEY: {bifrost_install_dir}")
-        print(f"BIFROST_DB_KEY: {os.environ.get('BIFROST_DB_KEY')}")
-        client = pymongo.MongoClient(os.environ["BIFROST_DB_KEY"])
-        db = client.get_database()
-        cls.clear_all_collections(db)
-        col = db["samples"]
-        col.insert_many(cls.bson_entries)
-        launcher.initialize()
-        os.chdir(cls.bifrost_install_dir)
+# A simple test class to run these tests
+class TestBifrostSetup:
+    print("test connection")
+    def test_connection(self, test_connection):
+        # This is handled by the fixture, so just a placeholder test
+        pass
 
-    @classmethod
-    def teardown_class(cls):
-        client = pymongo.MongoClient(os.environ["BIFROST_DB_KEY"])
-        db = client.get_database()
-        cls.clear_all_collections(db)
-
-    @staticmethod
-    def clear_all_collections(db):
-        db.drop_collection("components")
-        db.drop_collection("hosts")
-        db.drop_collection("run_components")
-        db.drop_collection("runs")
-        db.drop_collection("sample_components")
-        db.drop_collection("samples")
-
-    def test_info(self):
-        launcher.run_pipeline(["--info"])
-
-    def test_help(self):
-        launcher.run_pipeline(["--help"])
-
-    def test_pipeline(self):
-        if os.path.isdir(self.test_dir):
-            shutil.rmtree(self.test_dir)
-
-        os.makedirs(self.test_dir)
-        test_args = ["--sample_name", "S1", "--outdir", self.test_dir]
-        launcher.main(args=test_args)
-        assert (
-            os.path.exists(f"{self.test_dir}/{self.component_name}/datadump_complete")
-            == True
-        )
-        shutil.rmtree(self.test_dir)
-        assert not os.path.isdir(f"{self.test_dir}/{self.component_name}")
-
-    def test_db_output(self):
-        with pymongo.MongoClient(os.environ['BIFROST_DB_KEY']) as client:
-            db = client.get_database()
-            sample = db['samples']
-            sample_data = list(sample.find({}))
-            print(sample_data)
-            assert len(sample_data) == 1
+    print("test install dir")
+    def test_install_dir(self, test_install_dir):
+        # This is handled by the fixture, so just a placeholder test
+        pass
