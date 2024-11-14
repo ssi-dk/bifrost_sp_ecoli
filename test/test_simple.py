@@ -6,35 +6,34 @@ import pymongo
 import os
 import shutil
 
-# Test to check database connection using the BIFROST_DB_KEY
 @pytest.fixture
-def test_connection():
-    # Check if BIFROST_DB_KEY is set in environment
-    db_url = os.getenv("BIFROST_DB_KEY")
-    assert db_url is not None, "Database connection string (BIFROST_DB_KEY) is not set."
+def test_cwd_in_class():
+    """Test that checks the bifrost install directory."""
+    print(f"bifrost cwd: {self.bifrost_install_dir}")
+    assert self.bifrost_install_dir != ""
     
-    # Try to connect to the database
-    client = pymongo.MongoClient(db_url)
-    try:
-        client.server_info()  # This triggers a connection and checks server status
-    except pymongo.errors.PyMongoError as e:
-        pytest.fail(f"Database connection failed: {e}")
-    finally:
-        client.close()
+def test_connection():
+    """Test that checks the bifrost install directory."""
+    assert datahandling.has_a_database_connection()
 
-# Test to check if the BIFROST_INSTALL_DIR is set correctly
-@pytest.fixture
-def test_install_dir():
-    # Ensure that the install directory is set
-    install_dir = os.getenv("BIFROST_INSTALL_DIR")
-    assert install_dir is not None, "BIFROST_INSTALL_DIR is not set."
-    assert os.path.isdir(install_dir), f"The install directory '{install_dir}' does not exist."
-
-# A simple test class to run these tests
+# Test class to check the Bifrost setup
 class TestBifrostSetup:
     component_name = "bifrost_sp_ecoli_v.0.0.1"
     # component_name = component_name + "__171019"
-    print("test install dir")
-    def test_install_dir(self, test_install_dir):
-        # This is handled by the fixture, so just a placeholder test
-        pass
+
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        """Fixture to set up necessary environment variables for testing."""
+        self.bifrost_install_dir = os.environ["BIFROST_INSTALL_DIR"]
+        self.test_dir = f"{self.bifrost_install_dir}/bifrost/test_data/output/test__whats_my_species/"
+        self.r1 = f"{self.bifrost_install_dir}/bifrost/test_data/samples/S1_R1.fastq.gz"
+        self.r2 = f"{self.bifrost_install_dir}/bifrost/test_data/samples/S1_R2.fastq.gz"
+        self.json_entries = [
+            {
+                "_id": {"$oid": "000000000000000000000001"},
+                "name": "S1",
+                "components": [],
+                "categories": {"paired_reads": {"summary": {"data": [self.r1, self.r2]}}},
+            }
+        ]
+        self.bson_entries = [database_interface.json_to_bson(i) for i in self.json_entries]

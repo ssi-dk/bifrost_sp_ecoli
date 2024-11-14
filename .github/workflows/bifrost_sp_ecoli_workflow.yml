@@ -17,7 +17,7 @@ jobs:
         os: ["ubuntu-latest"]
         python-version: ["3.11"]
     env:
-      BIFROST_INSTALL_DIR: ${{ github.workspace }}  # Set the install directory to the workspace
+      BIFROST_INSTALL_DIR: "/home/runner/work"  # Set the install directory to the workspace
 
     steps:
       # Step 1: Checkout repository
@@ -76,7 +76,7 @@ jobs:
           docker build --no-cache \
           --build-arg BIFROST_DB_KEY="${{ secrets.MONGODB_ATLAS_CONNECTION }}" \
           --build-arg CONDA_ENV_NAME="${{ env.ENV_NAME }}" \
-          --build-arg BIFROST_INSTALL_DIR="${{ github.workspace }}" \
+          --build-arg BIFROST_INSTALL_DIR="/home/runner/work" \
           -t bifrost_sp_ecoli_image .
       
       - name: Get_tests_data
