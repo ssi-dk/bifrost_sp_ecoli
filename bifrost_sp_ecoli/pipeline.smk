@@ -17,14 +17,19 @@ try:
     sample_ref = SampleReference(_id=config.get('sample_id', None), name=config.get('sample_name', None))
     sample:Sample = Sample.load(sample_ref) # schema 2.1
     sample_id=sample['name']
+    print(f"sample_ref {sample_ref} and sample id {sample_id}")
     if sample is None:
         raise Exception("invalid sample passed")
     component_ref = ComponentReference(name=config['component_name'])
     component:Component = Component.load(reference=component_ref) # schema 2.1
+    print(f"Component ref: {component_ref}")
+    print(f"Component ref: {component}")
     if component is None:
         raise Exception("invalid component passed")
     samplecomponent_ref = SampleComponentReference(name=SampleComponentReference.name_generator(sample.to_reference(), component.to_reference()))
     samplecomponent = SampleComponent.load(samplecomponent_ref)
+    print(f"sample component_ref {samplecomponent_ref}")
+    print(f"sample component {samplecomponent}")
     if samplecomponent is None:
         samplecomponent:SampleComponent = SampleComponent(sample_reference=sample.to_reference(), component_reference=component.to_reference()) # schema 2.1
     common.set_status_and_save(sample, samplecomponent, "Running")
@@ -95,18 +100,24 @@ rule run_ecolityping:
     input:  # files
         rules.check_requirements.output.check_file,
         reads = sample['categories']['paired_reads']['summary']['data'],
-        db = f"{resources_dir}/{component['resources']['db']}",
+        db = f"{resources_dir}/bifrost_sp_ecoli/{component['resources']['db']}",
     params:  # values
         sample_id = sample_id,
         update = "no",
         kma_path = f"{os.environ['CONDA_PREFIX']}/bin"
     output:
         folder = directory(rules.setup.params.folder + "/ecoli_analysis"),
+        _aln = f"{rules.setup.params.folder}/ecoli_analysis/{sample_id}/sp_ecoli_fbi/colipost.aln",
+        _frag = f"{rules.setup.params.folder}/ecoli_analysis/{sample_id}/sp_ecoli_fbi/colipost.frag.gz",
+        _fsa = f"{rules.setup.params.folder}/ecoli_analysis/{sample_id}/sp_ecoli_fbi/colipost.fsa",
+        _mat = f"{rules.setup.params.folder}/ecoli_analysis/{sample_id}/sp_ecoli_fbi/colipost.mat.gz",
+        _res = f"{rules.setup.params.folder}/ecoli_analysis/{sample_id}/sp_ecoli_fbi/colipost.res",
     shell:
         """
         # Type
-        python3 ecoli_fbi/ecolityping.py -i {params.sample_id} -R1 {input.reads[0]} -R2 {input.reads[1]} -o {output.folder} -db {input.db} -k {params.kma_path} --update {params.update} 1> {log.out_file} 2> {log.err_file}
-        """
+        python3 {resources_dir}/bifrost_sp_ecoli/ecoli_fbi/ecolityping.py -i {params.sample_id} -R1 {input.reads[0]} -R2 {input.reads[1]} -db {input.db} -k {params.kma_path} --update \
+{params.update} -o {output.folder} 1> {log.out_file} 2> {log.err_file}
+	"""
 
 rule_name = "run_postecolityping"
 rule run_postecolityping:
@@ -117,39 +128,23 @@ rule run_postecolityping:
         err_file = f"{component['name']}/log/{rule_name}.err.log",
     benchmark:
         f"{component['name']}/benchmarks/{rule_name}.benchmark",
-    input:  # files
+    input:
         rules.check_requirements.output.check_file,
-        reads = sample['categories']['paired_reads']['summary']['data'],
-    params:  # values
-        sample_id = sample_id,
+        folder = rules.run_ecolityping.output.folder,
+        _aln = rules.run_ecolityping.output._aln,
+        _frag = rules.run_ecolityping.output._frag,
+        _fsa = rules.run_ecolityping.output._fsa,
+        _mat = rules.run_ecolityping.output._mat,
+        _res = rules.run_ecolityping.output._res,
     output:
-        folder = directory(rules.setup.params.folder + "/ecoli_analysis"),
-        _file = f"{rules.run_ecolityping.output.folder}/{sample_id}.json",
-	_tsv = f"{rules.run_ecolityping.output.folder}/{sample_id}.tsv"
+        _file = f"{rules.run_ecolityping.output.folder}/{rules.run_ecolityping.params.sample_id}/{rules.run_ecolityping.params.sample_id}.json",
+        _tsv = f"{rules.run_ecolityping.output.folder}/{rules.run_ecolityping.params.sample_id}/{rules.run_ecolityping.params.sample_id}.tsv",
+    params:  # values
+        sample_id = rules.run_ecolityping.params.sample_id,
     shell:
         """
         # Process
-        python3 ecoli_fbi/postecolityping.py -i {params.sample_id} -d {output.folder} 1> {log.out_file} 2> {log.err_file}"
-        """
-
-
-rule_name = "run_qc_ecoli_summary"
-rule run_qc_ecoli_summary:
-    message:
-        f"Running step:{rule_name}"
-    log:
-        out_file = f"{component['name']}/log/{rule_name}.out.log",
-        err_file = f"{component['name']}/log/{rule_name}.err.log",
-    benchmark:
-        f"{component['name']}/benchmarks/{rule_name}.benchmark",
-    input:  # files
-        rules.check_requirements.output.check_file,
-    output:
-        folder = directory(rules.setup.params.folder + "/ecoli_analysis"),
-    shell:
-        """
-        # Summarize
-        python3 ecoli_fbi/qc_ecoli_summary.py -i {output.folder} -o {output.folder} 1> {log.out_file} 2> {log.err_file}
+        python3 {resources_dir}/bifrost_sp_ecoli/ecoli_fbi/postecolityping.py -i {params.sample_id} -d {input.folder} 1> {log.out_file} 2> {log.err_file}
         """
 
 #* Dynamic section: end ****************************************************************************
@@ -165,16 +160,12 @@ rule datadump:
     benchmark:
         f"{component['name']}/benchmarks/{rule_name}.benchmark"
     input:
-        #* Dynamic section: start ******************************************************************
-        # TODO
-        #dtartrate = rules.run_dtartrate.output._file,  # Needs to be output of final rule
-        ecoli_analysis_output_file = rules.run_postecolityping.output._file
-        #subspecies = rules.run_subspecies.output._file  # Needs to be output of final rule
-        #* Dynamic section: end ********************************************************************
+        ecoli_analysis_output_file = rules.run_postecolityping.output._file,
+        ecoli_analysis_output_tsv = rules.run_postecolityping.output._tsv,
     output:
         complete = rules.all.input
     params:
         samplecomponent_ref_json = samplecomponent.to_reference().json
     script:
-        os.path.join(os.path.dirname(workflow.snakefile), "datadump.py")
+        f"{resources_dir}/bifrost_sp_ecoli/datadump.py"
 #- Templated section: end --------------------------------------------------------------------------
