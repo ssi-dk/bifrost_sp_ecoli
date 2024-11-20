@@ -48,6 +48,10 @@ envvars:
     "CONDA_PREFIX"
 
 resources_dir=f"{os.environ['BIFROST_INSTALL_DIR']}/bifrost/components/bifrost_{component['display_name']}"
+print(f"resource dir {resources_dir}")
+
+print(f"component db {component['resources']['db']}")
+print(f"component {component['resources']}")
 
 rule all:
     input:
@@ -55,6 +59,7 @@ rule all:
     run:
         common.set_status_and_save(sample, samplecomponent, "Success")
 
+#touch(temp(f"{component['name']}/initialized")),
 rule setup:
     output:
         init_file = touch(temp(f"{component['name']}/initialized")),
@@ -87,6 +92,7 @@ rule check_requirements:
 
 #- Templated section: end --------------------------------------------------------------------------
 
+print(f"kma database {resources_dir}/bifrost_sp_ecoli/{component['resources']['db']}")
 #* Dynamic section: start **************************************************************************
 rule_name = "run_ecolityping"
 rule run_ecolityping:
@@ -114,6 +120,8 @@ rule run_ecolityping:
         _res = f"{rules.setup.params.folder}/ecoli_analysis/{sample_id}/sp_ecoli_fbi/colipost.res",
     shell:
         """
+        echo {rules.run_ecolityping.output.folder}/{rules.run_ecolityping.params.sample_id}/sp_ecoli_fbi/colipost.aln
+        echo {output._aln}
         # Type
         python3 {resources_dir}/bifrost_sp_ecoli/ecoli_fbi/ecolityping.py -i {params.sample_id} -R1 {input.reads[0]} -R2 {input.reads[1]} -db {input.db} -k {params.kma_path} --update \
 {params.update} -o {output.folder} 1> {log.out_file} 2> {log.err_file}
