@@ -26,7 +26,7 @@ def datadump(input: object, output: object, samplecomponent_ref_json: Dict):
     if serotype is None:
         serotype = Category(value={
             "name": "bifrost_sp_ecoli",
-            "component": samplecomponent.component,
+            "component": {"id": samplecomponent["component"]["_id"], "name": samplecomponent["component"]["name"]},
             "summary": {
                 "ecoli_fbi": "",
             },
