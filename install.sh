@@ -77,8 +77,8 @@ LATEST_COMMIT=$(git rev-parse HEAD)
 echo "Updated commit hash of ecoli_fbi after update: $LATEST_COMMIT"
 
 # print the latest tag of ecoli_fbi
-LATEST_TAG_COMMIT=$(git tag --sort=-creatordate --format '%(objectname)'|head -1)
-LATEST_TAG=$(git tag --sort=-creatordate|head -1)
+LATEST_TAG_COMMIT=$(git for-each-ref --sort=-creatordate refs/tags|head -1|cut -f1 -d ' ')
+LATEST_TAG=$(git for-each-ref --sort=-creatordate refs/tags|head -1|cut -f3 -d '/')
 
 echo "Checking commit hash for the latest tag of ecoli_fbi: $LATEST_TAG_COMMIT"
 echo "Checking the lastest tag of ecoli_fbi: $LATEST_TAG"
