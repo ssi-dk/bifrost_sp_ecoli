@@ -113,15 +113,15 @@ rule run_ecolityping:
         kma_path = f"{os.environ['CONDA_PREFIX']}/bin"
     output:
         folder = directory(rules.setup.params.folder + "/ecoli_analysis"),
-        _aln = f"{rules.setup.params.folder}/ecoli_analysis/{sample_id}/sp_ecoli_fbi/colipost.aln",
-        _frag = f"{rules.setup.params.folder}/ecoli_analysis/{sample_id}/sp_ecoli_fbi/colipost.frag.gz",
-        _fsa = f"{rules.setup.params.folder}/ecoli_analysis/{sample_id}/sp_ecoli_fbi/colipost.fsa",
-        _mat = f"{rules.setup.params.folder}/ecoli_analysis/{sample_id}/sp_ecoli_fbi/colipost.mat.gz",
-        _res = f"{rules.setup.params.folder}/ecoli_analysis/{sample_id}/sp_ecoli_fbi/colipost.res",
+        # _aln = f"{rules.setup.params.folder}/ecoli_analysis/{sample_id}/sp_ecoli_fbi/colipost.aln",
+        # _frag = f"{rules.setup.params.folder}/ecoli_analysis/{sample_id}/sp_ecoli_fbi/colipost.frag.gz",
+        # _fsa = f"{rules.setup.params.folder}/ecoli_analysis/{sample_id}/sp_ecoli_fbi/colipost.fsa",
+        # _mat = f"{rules.setup.params.folder}/ecoli_analysis/{sample_id}/sp_ecoli_fbi/colipost.mat.gz",
+        # _res = f"{rules.setup.params.folder}/ecoli_analysis/{sample_id}/sp_ecoli_fbi/colipost.res",
     shell:
         """
-        echo {rules.run_ecolityping.output.folder}/{rules.run_ecolityping.params.sample_id}/sp_ecoli_fbi/colipost.aln
-        echo {output._aln}
+        #echo {rules.run_ecolityping.output.folder}/{rules.run_ecolityping.params.sample_id}/sp_ecoli_fbi/colipost.aln
+        #echo {output._aln}
         # Type
         python3 {resources_dir}/bifrost_sp_ecoli/ecoli_fbi/ecolityping.py -i {params.sample_id} -R1 {input.reads[0]} -R2 {input.reads[1]} -db {input.db} -k {params.kma_path} --update \
 {params.update} -o {output.folder} 1> {log.out_file} 2> {log.err_file}
@@ -139,11 +139,11 @@ rule run_postecolityping:
     input:
         rules.check_requirements.output.check_file,
         folder = rules.run_ecolityping.output.folder,
-        _aln = rules.run_ecolityping.output._aln,
-        _frag = rules.run_ecolityping.output._frag,
-        _fsa = rules.run_ecolityping.output._fsa,
-        _mat = rules.run_ecolityping.output._mat,
-        _res = rules.run_ecolityping.output._res,
+        # _aln = rules.run_ecolityping.output._aln,
+        # _frag = rules.run_ecolityping.output._frag,
+        # _fsa = rules.run_ecolityping.output._fsa,
+        # _mat = rules.run_ecolityping.output._mat,
+        # _res = rules.run_ecolityping.output._res,
     output:
         _file = f"{rules.run_ecolityping.output.folder}/{rules.run_ecolityping.params.sample_id}/{rules.run_ecolityping.params.sample_id}.json",
         _tsv = f"{rules.run_ecolityping.output.folder}/{rules.run_ecolityping.params.sample_id}/{rules.run_ecolityping.params.sample_id}.tsv",
