@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -euo pipefail
+
 helpFunction()
 {
    echo ""
@@ -8,12 +10,6 @@ helpFunction()
    echo "$0 -i COMP - for computerome install"
    exit 1 # Exit script after printing help
 }
-
-# Check if the conda command exist in order to setup the conda environment
-if ! command -v conda &> /dev/null; then
-    echo "conda could not be found, please install Anaconda/Miniconda"
-    exit 1
-fi
 
 while getopts "i:" opt
 do
@@ -36,6 +32,8 @@ then
   helpFunction
 fi
 
+STAGE="${BIFROST_STAGE:+${BIFROST_STAGE}_}"
+
 if [ "$parameterI" == "LOCAL" ]
 then
   echo "Starting local install"
@@ -45,7 +43,7 @@ if [ "$parameterI" == "COMP" ]
 then
   echo "Starting computerome install"
   module load tools computerome_utils/2.0
-  module load tools anaconda3/2022.10
+  module load tools $CONDA_VERSION
   #if $BIFROST_CONDA_PATH is not set then exit with help message
   if [ -z "$BIFROST_CONDA_PATH" ]
   then
@@ -61,33 +59,6 @@ then
     conda config --add pkgs_dirs $BIFROST_CONDA_PATH/pkgs
   fi
 fi
-
-# Update ecoli_fbi submodule
-echo "Updating ecoli_fbi submodule to the most current commit"
-git submodule update --init --recursive
-cd bifrost_sp_ecoli/ecoli_fbi || exit
-
-# Fetch the latest changes from the remote repository
-git fetch origin --tags
-git checkout main  # or the specific branch you want to track
-git pull origin main --tags
-
-# Show the new commit hash after the update
-LATEST_COMMIT=$(git rev-parse HEAD)
-echo "Updated commit hash of ecoli_fbi after update: $LATEST_COMMIT"
-
-# print the latest tag of ecoli_fbi
-LATEST_TAG_COMMIT=$(git tag --sort=-creatordate --format '%(objectname)'|head -1)
-LATEST_TAG=$(git tag --sort=-creatordate|head -1)
-
-echo "Checking commit hash for the latest tag of ecoli_fbi: $LATEST_TAG_COMMIT"
-echo "Checking the lastest tag of ecoli_fbi: $LATEST_TAG"
-  
-git checkout $LATEST_TAG_COMMIT
-
-# Navigate back to the main project directory
-cd ../../
-pwd
 
 # Begin script
 if $(conda config --show channels | grep -q "bioconda")
@@ -111,7 +82,7 @@ fi
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 REQ_TXT="$SCRIPT_DIR/environment.yml"
 
-CONFIG_YAML_PATH=$(find $SCRIPT_DIR -maxdepth 2 -name "config.yaml")
+CONFIG_YAML_PATH=$(find $SCRIPT_DIR -name "config.yaml")
 if test -f "$CONFIG_YAML_PATH";
 then
   COMPONENT_NAME=$(grep "display_name:.*." $CONFIG_YAML_PATH | tr " " "\n" | grep -v "display_name:")
@@ -126,7 +97,7 @@ then
       echo "code: in config.yaml should contain component version"
       exit 1
   fi
-  ENV_NAME=("bifrost_"$COMPONENT_NAME"_"$COMPONENT_VERSION)
+  ENV_NAME=("bifrost_"${STAGE}$COMPONENT_NAME"_"$COMPONENT_VERSION)
 else
   echo "Cannot find config.yaml in component folder to form env name"
   exit 1
@@ -149,12 +120,12 @@ else
   exit 1
 fi
 
-#check if environment.yml file exists
+# Create conda environment from environment.yml if the file exists
 if test -f "$REQ_TXT";
 then
   echo "Making conda env"
   echo "$ENV_NAME will be created"
-  conda env create -f "$REQ_TXT" --name $ENV_NAME
+  mamba env create --file "$REQ_TXT" --name $ENV_NAME
 else
   echo "environment.yml file cannot be found in the script folder"
   exit 1
@@ -181,7 +152,5 @@ fi
 if test -f "$CUSTOM_INSTALL_PATH";
 then
   echo -e "\nRunning custom_install.sh"
-  eval "$(conda shell.bash hook)"
-  conda activate $ENV_NAME
-  bash $CUSTOM_INSTALL_PATH -i $parameterI
+  bash -i $CUSTOM_INSTALL_PATH $ENV_NAME #-i required for interactive mode to active env
 fi
