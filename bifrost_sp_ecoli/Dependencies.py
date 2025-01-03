@@ -86,12 +86,8 @@ class Dependencies:
         except KeyError:
             raise ValueError("Paired reads data is missing or improperly formatted in the sample")
 
-    def set_status_running(self):
-        common.set_status_and_save(self.sample, self.samplecomponent, "Running")
-
-    def set_status_failure(self):
-        common.set_status_and_save(self.sample, self.samplecomponent, "Failure")
-
+    def set_status(self,current_status:str):
+        common.set_status_and_save(self.sample, self.samplecomponent,current_status)
 
 # If the script is executed directly, test its behavior
 if __name__ == "__main__":
