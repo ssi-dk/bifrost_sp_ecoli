@@ -31,9 +31,6 @@ resources:
 requirements:
   sample:
     categories:
-      mlst:
-        summary:
-          sequence_type:
       species_detection:
         summary:
           species: Escherichia coli
