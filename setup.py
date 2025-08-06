@@ -2,7 +2,7 @@ from setuptools import setup, find_namespace_packages
 
 setup(
     name='bifrost_sp_ecoli',
-    version='0.0.1',
+    version='0.0.2',
     description='Ecoli serotyping and stx typing for Bifrost',
     url='https://github.com/ssi-dk/bifrost_sp_ecoli',
     author='Rasmus',
