@@ -86,6 +86,13 @@ rule check_requirements:
     params:
         samplecomponent
     run:
+        req_species = component["requirements"]["sample"]["categories"]["species_detection"]["summary"].get("species")
+        sample_species = sample["categories"]["species_detection"]["summary"].get("species")
+
+        print("Requirement species:", req_species)
+        print("Sample species:", sample_species)
+        print("has_requirements():", samplecomponent.has_requirements())
+
         if samplecomponent.has_requirements():
             with open(output.check_file, "w") as fh:
                 fh.write("")

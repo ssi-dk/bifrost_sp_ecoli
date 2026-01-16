@@ -33,7 +33,12 @@ requirements:
     categories:
       species_detection:
         summary:
-          species: Escherichia coli
+          species:
+            - Escherichia coli
+            - Shigella sonnei
+            - Shigella flexneri
+            - Shigella boydii
+            - Shigella dysenteriae
   components:
     analyzer:
       status:
