@@ -10,6 +10,7 @@ from bifrostlib.datahandling import ComponentReference
 from bifrostlib.datahandling import Component
 from bifrostlib.datahandling import SampleComponentReference
 from bifrostlib.datahandling import SampleComponent
+from pathlib import Path
 os.umask(0o2)
 
 try:
@@ -26,13 +27,21 @@ try:
     print(f"Component ref: {component}")
     if component is None:
         raise Exception("invalid component passed")
-    samplecomponent_ref = SampleComponentReference(name=SampleComponentReference.name_generator(sample.to_reference(), component.to_reference()))
+    
+    samplecomponent_ref = SampleComponentReference(
+        name=SampleComponentReference.name_generator(sample.to_reference(), component.to_reference())
+    )
     samplecomponent = SampleComponent.load(samplecomponent_ref)
     print(f"sample component_ref {samplecomponent_ref}")
     print(f"sample component {samplecomponent}")
+    
     if samplecomponent is None:
-        samplecomponent:SampleComponent = SampleComponent(sample_reference=sample.to_reference(), component_reference=component.to_reference()) # schema 2.1
+        samplecomponent:SampleComponent = SampleComponent(
+            sample_reference=sample.to_reference(), component_reference=component.to_reference()
+        ) # schema 2.1
+    
     common.set_status_and_save(sample, samplecomponent, "Running")
+
 except Exception as error:
     print(traceback.format_exc(), file=sys.stderr)
     raise Exception("failed to set sample, component and/or samplecomponent")
@@ -47,11 +56,14 @@ envvars:
     "BIFROST_INSTALL_DIR",
     "CONDA_PREFIX"
 
-resources_dir=f"{os.environ['BIFROST_INSTALL_DIR']}/bifrost/components/bifrost_{component['display_name']}"
-print(f"resource dir {resources_dir}")
 
+#NB! -> this is simply because i need somewhere else to alter the db directory stored within the mongoDB
+component['resources']['db'] = "resources/ecoligenes"
 print(f"component db {component['resources']['db']}")
 print(f"component {component['resources']}")
+
+resources_dir=f"{os.environ['BIFROST_INSTALL_DIR']}/bifrost/components/bifrost_{component['display_name']}"
+print(f"resource dir {resources_dir}")
 
 rule all:
     input:
@@ -97,66 +109,96 @@ rule check_requirements:
             with open(output.check_file, "w") as fh:
                 fh.write("")
 
-#- Templated section: end --------------------------------------------------------------------------
 
-print(f"kma database {resources_dir}/bifrost_sp_ecoli/{component['resources']['db']}")
-#* Dynamic section: start **************************************************************************
-rule_name = "run_ecolityping"
-rule run_ecolityping:
+# Paths for KMA
+BASE = Path(workflow.basedir)
+DB_FASTA = f"{BASE}/resources/ecoligenes.fasta"
+
+# Build index in run dir (writable + avoids races on shared install resources)
+DB_RUN_DIR = f"{component["name"]}/db"
+DB_PREFIX  = f"{DB_RUN_DIR}/ecoligenes"  # produces ecoligenes.name, ecoligenes.seq.b, etc.
+
+ANALYSIS_DIR = f"{component["name"]}/ecoli_analysis/{sample_id}/sp_ecoli_fbi"
+OUT_PREFIX   = f"{ANALYSIS_DIR}/colipost"
+Typing_PREFIX   = f"{ANALYSIS_DIR}/ecolitype"
+
+#- Templated section: end --------------------------------------------------------------------------
+rule_name = "run_kma_index"
+rule run_kma_index:
     message:
         f"Running step:{rule_name}"
+    conda:
+        "../envs/kma.yaml"
     log:
         out_file = f"{component['name']}/log/{rule_name}.out.log",
         err_file = f"{component['name']}/log/{rule_name}.err.log",
-    benchmark:
-        f"{component['name']}/benchmarks/{rule_name}.benchmark",
-    input:  # files
-        rules.check_requirements.output.check_file,
-        reads = sample['categories']['paired_reads']['summary']['data'],
-        db = f"{resources_dir}/bifrost_sp_ecoli/{component['resources']['db']}",
-    params:  # values
-        sample_id = sample_id,
-        update = "no",
-        kma_path = f"{os.environ['CONDA_PREFIX']}/bin"
+    input:
+        req = rules.check_requirements.output.check_file,
+        fasta = DB_FASTA,
+    params:
+        prefix = DB_PREFIX
     output:
-        _aln = f"{rules.setup.params.folder}/ecoli_analysis/{sample_id}/sp_ecoli_fbi/colipost.aln",
-        _frag = f"{rules.setup.params.folder}/ecoli_analysis/{sample_id}/sp_ecoli_fbi/colipost.frag.gz",
-        _fsa = f"{rules.setup.params.folder}/ecoli_analysis/{sample_id}/sp_ecoli_fbi/colipost.fsa",
-        _mat = f"{rules.setup.params.folder}/ecoli_analysis/{sample_id}/sp_ecoli_fbi/colipost.mat.gz",
-        _res = f"{rules.setup.params.folder}/ecoli_analysis/{sample_id}/sp_ecoli_fbi/colipost.res",
+        name = f"{DB_PREFIX}.name",
     shell:
         """
-        # Type
-        python3 {resources_dir}/bifrost_sp_ecoli/ecoli_fbi/ecolityping.py -i {params.sample_id} -R1 {input.reads[0]} -R2 {input.reads[1]} -db {input.db} -k {params.kma_path} --update \
-{params.update} -o {rules.setup.params.folder}/ecoli_analysis 1> {log.out_file} 2> {log.err_file}
-	"""
+        set -euo pipefail
 
-rule_name = "run_postecolityping"
-rule run_postecolityping:
+        kma_index -i {input.fasta} -o {params.prefix} 1> {log.out_file} 2> {log.err_file}
+        """
+
+rule_name = "run_kma"
+rule run_kma:
     message:
         f"Running step:{rule_name}"
+    conda:
+        "../envs/kma.yaml"
     log:
         out_file = f"{component['name']}/log/{rule_name}.out.log",
         err_file = f"{component['name']}/log/{rule_name}.err.log",
     benchmark:
         f"{component['name']}/benchmarks/{rule_name}.benchmark",
     input:
-        rules.check_requirements.output.check_file,
-        #folder = rules.run_ecolityping.output.folder,
-        _aln = rules.run_ecolityping.output._aln,
-        _frag = rules.run_ecolityping.output._frag,
-        _fsa = rules.run_ecolityping.output._fsa,
-        _mat = rules.run_ecolityping.output._mat,
-        _res = rules.run_ecolityping.output._res,
+        req = rules.check_requirements.output.check_file,
+        idx = rules.run_kma_index.output.name,  # forces indexing first
+        reads = sample["categories"]["paired_reads"]["summary"]["data"],
     output:
-        _file = f"{rules.setup.params.folder}/ecoli_analysis/{rules.run_ecolityping.params.sample_id}/{rules.run_ecolityping.params.sample_id}.json",
-        _tsv = f"{rules.setup.params.folder}/ecoli_analysis/{rules.run_ecolityping.params.sample_id}/{rules.run_ecolityping.params.sample_id}.tsv",
-    params:  # values
-        sample_id = rules.run_ecolityping.params.sample_id,
+        aln  = f"{DB_PREFIX}.aln",
+        frag = f"{DB_PREFIX}.frag.gz",
+        fsa  = f"{DB_PREFIX}.fsa",
+        mat  = f"{DB_PREFIX}.mat.gz",
+        res  = f"{DB_PREFIX}.res",
+    params:
+        prefix = DB_PREFIX
     shell:
         """
-        # Process
-        python3 {resources_dir}/bifrost_sp_ecoli/ecoli_fbi/postecolityping.py -i {params.sample_id} -d {rules.setup.params.folder}/ecoli_analysis 1> {log.out_file} 2> {log.err_file}
+        idx_prefix={input.db_idx}/$(basename $fasta .fasta)
+
+        kma -ipe {input.reads[0]} {input.reads[1]} -matrix -t_db {params.params} -o {OUT_PREFIX} 1> {log.out_file} 2> {log.err_file}            
+        """
+
+rule_name = "run_ecolityping"
+rule run_ecolityping:
+    message:
+        f"Running step:{rule_name}"
+    conda:
+        "../envs/ecolityping.yaml"
+    log:
+        out_file = f"{component['name']}/log/{rule_name}.out.log",
+        err_file = f"{component['name']}/log/{rule_name}.err.log",
+    benchmark:
+        f"{component['name']}/benchmarks/{rule_name}.benchmark",
+    input:
+        res = rules.run_kma.output.res,
+        reads = sample["categories"]["paired_reads"]["summary"]["data"],
+    output:
+        typing_result = Typing_PREFIX
+    params:
+        genefilter = "GeneFilter.yaml",
+        species = sample["categories"]["species_detection"]["summary"]["species"],
+        sample_name = sample_id
+    shell:
+        """
+        python ecolityping_filter.py --KMA_res {input.res} --config {params.genefilter} --organism {params.species} --sample_id {params.sample_name} --store_tmp --verbose --output {output.typing_result}
         """
 
 #* Dynamic section: end ****************************************************************************
@@ -172,8 +214,8 @@ rule datadump:
     benchmark:
         f"{component['name']}/benchmarks/{rule_name}.benchmark"
     input:
-        ecoli_analysis_output_file = rules.run_postecolityping.output._file,
-        ecoli_analysis_output_tsv = rules.run_postecolityping.output._tsv,
+        # UPDATED: wire datadump to KMA outputs (replace with your own updated post-processing outputs as needed)
+        final_typing_results  = rules.run_ecolityping.output.typing_result,
     output:
         complete = rules.all.input
     params:
