@@ -11,33 +11,41 @@ from bifrostlib.datahandling import Component
 from bifrostlib.datahandling import SampleComponentReference
 from bifrostlib.datahandling import SampleComponent
 from pathlib import Path
+
 os.umask(0o2)
 
 try:
     #print(config)
     sample_ref = SampleReference(_id=config.get('sample_id', None), name=config.get('sample_name', None))
     sample:Sample = Sample.load(sample_ref) # schema 2.1
-    sample_id=sample['name']
-    print(f"sample_ref {sample_ref} and sample id {sample_id}")
+
     if sample is None:
         raise Exception("invalid sample passed")
+
+    sample_id=sample['name']
+    print(f"sample_ref {sample_ref} and sample id {sample_id}")
+
     component_ref = ComponentReference(name=config['component_name'])
     component:Component = Component.load(reference=component_ref) # schema 2.1
-    print(f"Component ref: {component_ref}")
-    print(f"Component ref: {component}")
+
     if component is None:
         raise Exception("invalid component passed")
-    
+
+    print(f"Component ref: {component_ref}")
+    print(f"Component ref: {component}")
+
     samplecomponent_ref = SampleComponentReference(
         name=SampleComponentReference.name_generator(sample.to_reference(), component.to_reference())
     )
+    
     samplecomponent = SampleComponent.load(samplecomponent_ref)
     print(f"sample component_ref {samplecomponent_ref}")
     print(f"sample component {samplecomponent}")
     
     if samplecomponent is None:
         samplecomponent:SampleComponent = SampleComponent(
-            sample_reference=sample.to_reference(), component_reference=component.to_reference()
+            sample_reference=sample.to_reference(), 
+            component_reference=component.to_reference()
         ) # schema 2.1
     
     common.set_status_and_save(sample, samplecomponent, "Running")
@@ -98,8 +106,8 @@ rule check_requirements:
     params:
         samplecomponent
     run:
-        req_species = component["requirements"]["sample"]["categories"]["species_detection"]["summary"].get("species")
-        sample_species = sample["categories"]["species_detection"]["summary"].get("species")
+        req_species = component['requirements']['sample']['categories']['species_detection']['summary'].get('species')
+        sample_species = sample["categories"]['species_detection']['summary'].get('species')
 
         print("Requirement species:", req_species)
         print("Sample species:", sample_species)
@@ -115,12 +123,12 @@ BASE = Path(workflow.basedir)
 DB_FASTA = f"{BASE}/resources/ecoligenes.fasta"
 
 # Build index in run dir (writable + avoids races on shared install resources)
-DB_RUN_DIR = f"{component["name"]}/db"
+DB_RUN_DIR = f"{component['name']}/db"
 DB_PREFIX  = f"{DB_RUN_DIR}/ecoligenes"  # produces ecoligenes.name, ecoligenes.seq.b, etc.
 
-ANALYSIS_DIR = f"{component["name"]}/ecoli_analysis/{sample_id}/sp_ecoli_fbi"
-OUT_PREFIX   = f"{ANALYSIS_DIR}/colipost"
-Typing_PREFIX   = f"{ANALYSIS_DIR}/ecolitype"
+ANALYSIS_DIR = f"{component['name']}/ecoli_analysis/{sample_id}/sp_ecoli_fbi"
+KMA_OUT_PREFIX = f"{ANALYSIS_DIR}/colipost"
+TYPING_DIR = f"{ANALYSIS_DIR}/ecolitype"
 
 #- Templated section: end --------------------------------------------------------------------------
 rule_name = "run_kma_index"
@@ -139,6 +147,8 @@ rule run_kma_index:
         prefix = DB_PREFIX
     output:
         name = f"{DB_PREFIX}.name",
+    benchmark:
+        f"{component['name']}/benchmarks/{rule_name}.benchmark"
     shell:
         """
         set -euo pipefail
@@ -159,21 +169,23 @@ rule run_kma:
         f"{component['name']}/benchmarks/{rule_name}.benchmark",
     input:
         req = rules.check_requirements.output.check_file,
-        idx = rules.run_kma_index.output.name,  # forces indexing first
-        reads = sample["categories"]["paired_reads"]["summary"]["data"],
+        db_idx = rules.run_kma_index.output.name,  # forces indexing first
+        reads = sample['categories']['paired_reads']['summary']['data'],
     output:
-        aln  = f"{DB_PREFIX}.aln",
-        frag = f"{DB_PREFIX}.frag.gz",
-        fsa  = f"{DB_PREFIX}.fsa",
-        mat  = f"{DB_PREFIX}.mat.gz",
-        res  = f"{DB_PREFIX}.res",
+        aln  = f"{KMA_OUT_PREFIX}.aln",
+        frag = f"{KMA_OUT_PREFIX}.frag.gz",
+        fsa  = f"{KMA_OUT_PREFIX}.fsa",
+        mat  = f"{KMA_OUT_PREFIX}.mat.gz",
+        res  = f"{KMA_OUT_PREFIX}.res",
     params:
-        prefix = DB_PREFIX
+        db_prefix = DB_PREFIX,
+        output_prefix = KMA_OUT_PREFIX
     shell:
         """
-        idx_prefix={input.db_idx}/$(basename $fasta .fasta)
-
-        kma -ipe {input.reads[0]} {input.reads[1]} -matrix -t_db {params.params} -o {OUT_PREFIX} 1> {log.out_file} 2> {log.err_file}            
+        set -euo pipefail
+        mkdir -p "$(dirname "{params.output_prefix}")"
+        
+        kma -ipe {input.reads[0]} {input.reads[1]} -matrix -t_db {params.prefix} -o {params.output_prefix} 1> {log.out_file} 2> {log.err_file}            
         """
 
 rule_name = "run_ecolityping"
@@ -188,17 +200,23 @@ rule run_ecolityping:
     benchmark:
         f"{component['name']}/benchmarks/{rule_name}.benchmark",
     input:
+        req = rules.check_requirements.output.check_file,
         res = rules.run_kma.output.res,
-        reads = sample["categories"]["paired_reads"]["summary"]["data"],
+        reads = sample['categories']['paired_reads']['summary']['data'],
     output:
-        typing_result = Typing_PREFIX
+        output_prefix = f"{TYPING_DIR}"
+        output_tsv = f"{TYPING_DIR}_final.tsv",
     params:
         genefilter = "GeneFilter.yaml",
-        species = sample["categories"]["species_detection"]["summary"]["species"],
-        sample_name = sample_id
+        species = sample['categories']['species_detection']['summary']['species'],
+        sample_name = sample_id,
+        options="--store_tmp --verbose"
     shell:
         """
-        python ecolityping_filter.py --KMA_res {input.res} --config {params.genefilter} --organism {params.species} --sample_id {params.sample_name} --store_tmp --verbose --output {output.typing_result}
+        set -euo pipefail
+        mkdir -p "{output.output_dir}"
+
+        python ecolityping_filter.py --KMA_res {input.res} --config {params.genefilter} --organism {params.species} --sample_id {params.sample_name} {params.options} --output {output.output_prefix}
         """
 
 #* Dynamic section: end ****************************************************************************
@@ -214,8 +232,7 @@ rule datadump:
     benchmark:
         f"{component['name']}/benchmarks/{rule_name}.benchmark"
     input:
-        # UPDATED: wire datadump to KMA outputs (replace with your own updated post-processing outputs as needed)
-        final_typing_results  = rules.run_ecolityping.output.typing_result,
+        final_tsv = rules.run_ecolityping.output.output_tsv,
     output:
         complete = rules.all.input
     params:

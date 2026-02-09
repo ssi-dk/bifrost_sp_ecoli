@@ -6,8 +6,13 @@ import json
 
 
 from bifrostlib import common
-from bifrostlib.datahandling import (Category, Component, Sample,
-                                     SampleComponent, SampleComponentReference)
+from bifrostlib.datahandling import (
+    Category, 
+    Component, 
+    Sample,
+    SampleComponent, 
+    SampleComponentReference
+)
 
 
 def extract_results_from_json(serotype: Category, results: Dict, component_name: str, file_name: str) -> None:

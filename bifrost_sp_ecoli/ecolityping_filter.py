@@ -30,47 +30,42 @@ def parse_gene_from_template(template: str) -> Tuple[str, str]:
     allele = parts[2] if len(parts) >= 3 else NA
     return gene, allele
 
-def resolve_threshold_for_gene(gene: str, thresholds: Dict[str, List[float]]) -> List[float]:
-    """
-    Priority:
-      1) exact key match
-      2) case-insensitive exact
-      3) prefix match (e.g., 'stx1' uses 'stx' thresholds)
-      4) 'other' (case-insensitive)
-    Returns a list: [coverage_min, identity_min, depth_min]
-    """
-    if gene in thresholds:
-        return thresholds[gene]
-    for k in thresholds:
-        if k.lower() == gene.lower():
-            return thresholds[k]
-    for k in thresholds:
-        if k.lower() != "other" and gene.lower().startswith(k.lower()):
-            return thresholds[k]
-    for k in thresholds:
-        if k.lower() == "other":
-            return thresholds[k]
-    # if we get here, metafile lacks both a matching entry and 'other'
-    raise ValueError(f"No threshold for gene '{gene}' and no 'other' fallback in metafile.")
-
 def resolve_threshold_key_for_gene(gene: str, thresholds: Dict[str, List[float]]) -> str:
     """
-    Same matching logic as resolve_threshold_for_gene(), but returns the *matched key*.
-    This lets us filter out hits that only match via the 'other' fallback.
+    Return the thresholds key to use for `gene`.
+
+    Match order:
+      1) exact match (case-sensitive)
+      2) exact match (case-insensitive)
+      3) longest prefix match among keys (excluding 'other')  <-- avoids case where YAML has both fl and fli keys, then a gene like fliX could incorrectly match fl if fl appears earlier in yaml. so this is a config structure fallback
+      4) 'other' fallback
     """
-    if gene in thresholds:
-        return gene
+    gene_str = str(gene)
+    gene_l = gene_str.lower()
+
+    # 1) exact (case-sensitive)
+    if gene_str in thresholds:
+        return gene_str
+
+    # 2) exact (case-insensitive)
     for k in thresholds:
-        if k.lower() == gene.lower():
+        if k.lower() == gene_l:
             return k
-    for k in thresholds:
-        if k.lower() != "other" and gene.lower().startswith(k.lower()):
-            return k
+
+    # 3) prefix candidates (excluding 'other') -> choose most specific (longest)
+    candidates = [
+        k for k in thresholds
+        if k.lower() != "other" and gene_l.startswith(k.lower())
+    ]
+    if candidates:
+        return max(candidates, key=lambda k: (len(k), k.lower()))
+
+    # 4) other fallback
     for k in thresholds:
         if k.lower() == "other":
             return k
-    raise ValueError(f"No threshold for gene '{gene}' and no 'other' fallback in config.")
 
+    raise ValueError(f"No threshold for gene '{gene_str}' and no 'other' fallback in config.")
 # ------------------------- Step 1: Read YAML gene config ------------------------- #
 
 def read_geneconfig(config_path: str, organism_key: str) -> Dict[str, List[float]]:
@@ -118,12 +113,12 @@ def read_geneconfig(config_path: str, organism_key: str) -> Dict[str, List[float
 
 # ------------------------- Step 2: Read + Extract KMA .res ------------------------- #
 
-def process_kma_res(res_path: str, thresholds: Dict[str, List[float]]) -> pd.DataFrame:
+def process_kma_res(res_path: str) -> pd.DataFrame:
     """
-    Read KMA .res, parse gene/allele from #Template, and KEEP ONLY rows where gene matches
-    something in the config (excluding pure 'other' fallback).
+    Read a KMA .res file, parse gene/allele from '#Template',
+    and return the core columns needed for filtering.
 
-    Returns DF with columns:
+    Returns columns:
       gene, allele, Template_Coverage, Query_Identity, Depth
     """
     if not os.path.exists(res_path):
@@ -149,34 +144,11 @@ def process_kma_res(res_path: str, thresholds: Dict[str, List[float]]) -> pd.Dat
     if missing:
         raise ValueError(f"Missing required columns in .res: {sorted(missing)}. Found: {df.columns.tolist()}")
 
-    # Parse gene + allele
     parsed = df["#Template"].apply(parse_gene_from_template)
     df["gene"] = parsed.apply(lambda x: x[0])
     df["allele"] = parsed.apply(lambda x: x[1])
 
-    """
-    # Determine which config key this gene would match (or 'other')
-    df["__matched_key"] = df["gene"].apply(lambda g: resolve_threshold_key_for_gene(g, thresholds))
-
-    # Keep only real matches, NOT entries that only map to 'other'
-    df = df[df["__matched_key"].str.lower() != "other"].copy()
-    """
-
-    # Determine which config key this gene would match (or 'other')
-    df["__matched_key"] = df["gene"].apply(lambda g: resolve_threshold_key_for_gene(g, thresholds))
-    # Return exactly the requested columns/order
-
-    out = df[["gene", "allele", "Template_Coverage", "Query_Identity", "Depth"]].copy()
-    return out
-
-# ------------------------- Placeholder functions (empty for now) ------------------------- #
-def threshold_triplet_for_key(matched_key: str, thresholds: Dict[str, List[float]]) -> Tuple[float, float, float]:
-    """
-    Given a key that exists in thresholds (e.g. 'wzx', 'stx1', or 'other'),
-    return (cov_min, id_min, depth_min) as floats.
-    """
-    t = thresholds[matched_key]
-    return float(t[0]), float(t[1]), float(t[2])
+    return df[["gene", "allele", "Template_Coverage", "Query_Identity", "Depth"]].copy()
 
 def filter_kma_res(df: pd.DataFrame, thresholds: Dict[str, List[float]]) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
@@ -203,14 +175,11 @@ def filter_kma_res(df: pd.DataFrame, thresholds: Dict[str, List[float]]) -> Tupl
     work["matched_key"] = matched_keys
 
     # 2) attach thresholds per row (based on matched_key, so unmatched -> 'other')
-    triplets: List[Tuple[float, float, float]] = [
-        threshold_triplet_for_key(k, thresholds)
-        for k in matched_keys
-    ]
-    work["th_cov"] = [t[0] for t in triplets]
-    work["th_id"] = [t[1] for t in triplets]
-    work["th_depth"] = [t[2] for t in triplets]
-
+    th_df = pd.DataFrame.from_dict(
+        thresholds, orient="index", columns=["th_cov", "th_id", "th_depth"]
+    )
+    work = work.join(th_df, on="matched_key")
+    
     # 3) apply thresholds
     cov = work["Template_Coverage"].astype(float)
     ide = work["Query_Identity"].astype(float)
@@ -387,38 +356,22 @@ def determine_O_type(pass_df: pd.DataFrame, fail_df: pd.DataFrame, sample_id: st
     wzt_unique = sorted(set(wzt_alleles))
     wzm_unique = sorted(set(wzm_alleles))
 
-    candidate1 = None  # wzx/wzy
-    candidate2 = None  # wzt/wzm
-    candidate3 = None  # all four
+    # O type candidates
+    O_candidates: List[str] = []
 
-    # (3) all four concordant (strongest) - 1 unique in each
-    if len(wzx_unique) == 1 and len(wzy_unique) == 1 and len(wzt_unique) == 1 and len(wzm_unique) == 1:
-        union = set([wzx_unique[0], wzy_unique[0], wzt_unique[0], wzm_unique[0]])
-        if len(union) == 1: #simply pick one as they are all identical
-            candidate3 = wzx_unique[0]
+    #if only one wzx and wzy exist and they are in agreement that is a candidate pair
+    if len(wzx_unique) == 1 and len(wzy_unique) == 1 and wzx_unique[0] == wzy_unique[0]:
+        O_candidates.append(wzx_unique[0])
 
-    # (1) wzx and wzy concordant -> if the wzx for all four hasn't been filled out yet
-    if candidate3 is None:
-        if len(wzx_unique) == 1 and len(wzy_unique) == 1 and wzx_unique[0] == wzy_unique[0]: 
-            candidate1 = wzx_unique[0]
+    #if only one wzt and wzm exist and they are in agreement that is another candidate pair
+    if len(wzt_unique) == 1 and len(wzm_unique) == 1 and wzt_unique[0] == wzm_unique[0]:
+        O_candidates.append(wzt_unique[0])
+    
+    O_type='-'
 
-        # (2) wzt and wzm concordant
-        if len(wzt_unique) == 1 and len(wzm_unique) == 1 and wzt_unique[0] == wzm_unique[0]:
-            candidate2 = wzt_unique[0]
-
-    # Decide O_type
-    if candidate3 is not None:
-        O_type = candidate3
-    else:
-        # If both candidates exist but differ -> no call
-        if candidate1 is not None and candidate2 is not None and candidate1 != candidate2:
-            O_type = "-"
-        elif candidate1 is not None: # if only one candidate differ 
-            O_type = candidate1
-        elif candidate2 is not None:
-            O_type = candidate2
-        else:
-            O_type = "-"
+    if O_candidates and len(set(O_candidates)) == 1:
+        #if length is 1, it means if all four exist they are identical, or one of the two O candidate pair exist.
+        O_type = O_candidates[0]
 
     prefixes = ["wzx", "wzy", "wzt", "wzm"]
     O_type_pass_details = build_details_from_df(pass_df, prefixes, include_gene=True)
@@ -552,15 +505,6 @@ def build_verbose_from_detail_columns(row: pd.Series) -> str:
             parts.append(f"{label}:{row[col]}")
     return "-" if len(parts) == 0 else "||".join(parts)
 
-def _as_dash(v: object) -> str:
-    return "-" if is_missing_detail_value(v) else str(v).strip()
-
-def _combine_o_h(o: object, h: object) -> str:
-    o2 = _as_dash(o)
-    h2 = _as_dash(h)
-
-    return f"{o2};{h2}"
-
 def merge_final_outputs(
     stx_out: pd.DataFrame,
     o_out: pd.DataFrame,
@@ -591,10 +535,12 @@ def merge_final_outputs(
     final_df["toxin_details_combined"] = final_df.apply(build_verbose_from_detail_columns, axis=1)
 
     # 2) Merge O_type + H_type -> sero_serotype_finder
-    final_df["sero_serotype_finder"] = final_df.apply(
-        lambda r: _combine_o_h(r.get("O_type", "-"), r.get("H_type", "-")),
-        axis=1,
-    )
+    o = final_df["O_type"] if "O_type" in final_df.columns else "-"
+    h = final_df["H_type"] if "H_type" in final_df.columns else "-"
+
+    o = final_df["O_type"].apply(lambda v: "-" if is_missing_detail_value(v) else str(v).strip())
+    h = final_df["H_type"].apply(lambda v: "-" if is_missing_detail_value(v) else str(v).strip())
+    final_df["sero_serotype_finder"] = o + ";" + h
 
     # 3) Drop pass/fail detail columns
     drop_cols: List[str] = []
@@ -729,7 +675,7 @@ def main(args: argparse.Namespace) -> None:
         organism_key = normalize_organism_key(args.organism)
         thresholds = read_geneconfig(args.config, organism_key)
 
-        extracted_df = process_kma_res(args.KMA_res,thresholds)
+        extracted_df = process_kma_res(args.KMA_res)
         pass_df, fail_df = filter_kma_res(extracted_df, thresholds)
 
         # --output is a PREFIX
