@@ -20,39 +20,24 @@ FINAL_DETAIL_SPECS: List[Tuple[str, str]] = [
 # ------------------------- Parsing & Threshold resolution ------------------------- #
 
 def parse_gene_from_template(template: str) -> Tuple[str, str]:
-    """
-    Extract (gene, allele) from KMA '#Template'.
-    Supports '__' as primary delimiter, '_' as fallback.
-    """
     NA = "-"
     parts = template.split("__") if "__" in template else template.split("_")
     gene = parts[1] if len(parts) >= 2 else parts[0]
     allele = parts[2] if len(parts) >= 3 else NA
     return gene, allele
 
-def resolve_threshold_key_for_gene(gene: str, thresholds: Dict[str, List[float]]) -> str:
-    """
-    Return the thresholds key to use for `gene`.
 
-    Match order:
-      1) exact match (case-sensitive)
-      2) exact match (case-insensitive)
-      3) longest prefix match among keys (excluding 'other')  <-- avoids case where YAML has both fl and fli keys, then a gene like fliX could incorrectly match fl if fl appears earlier in yaml. so this is a config structure fallback
-      4) 'other' fallback
-    """
+def resolve_threshold_key_for_gene(gene: str, thresholds: Dict[str, List[float]]) -> str:
     gene_str = str(gene)
     gene_l = gene_str.lower()
 
-    # 1) exact (case-sensitive)
     if gene_str in thresholds:
         return gene_str
 
-    # 2) exact (case-insensitive)
     for k in thresholds:
         if k.lower() == gene_l:
             return k
 
-    # 3) prefix candidates (excluding 'other') -> choose most specific (longest)
     candidates = [
         k for k in thresholds
         if k.lower() != "other" and gene_l.startswith(k.lower())
@@ -60,26 +45,15 @@ def resolve_threshold_key_for_gene(gene: str, thresholds: Dict[str, List[float]]
     if candidates:
         return max(candidates, key=lambda k: (len(k), k.lower()))
 
-    # 4) other fallback
     for k in thresholds:
         if k.lower() == "other":
             return k
 
     raise ValueError(f"No threshold for gene '{gene_str}' and no 'other' fallback in config.")
+
 # ------------------------- Step 1: Read YAML gene config ------------------------- #
 
 def read_geneconfig(config_path: str, organism_key: str) -> Dict[str, List[float]]:
-    """
-    Reads YAML config like:
-      Escherichia:
-        stx1: [98,98,1]
-        ...
-      Shigella:
-        ipaH: [98,98,1]
-        ...
-
-    Returns: dict { gene_name: [template_cov_min, query_ident_min, depth_min] }
-    """
     if yaml is None:
         raise RuntimeError("Missing dependency 'pyyaml'. Install with: pip install pyyaml")
 
@@ -114,13 +88,6 @@ def read_geneconfig(config_path: str, organism_key: str) -> Dict[str, List[float
 # ------------------------- Step 2: Read + Extract KMA .res ------------------------- #
 
 def process_kma_res(res_path: str) -> pd.DataFrame:
-    """
-    Read a KMA .res file, parse gene/allele from '#Template',
-    and return the core columns needed for filtering.
-
-    Returns columns:
-      gene, allele, Template_Coverage, Query_Identity, Depth
-    """
     if not os.path.exists(res_path):
         raise FileNotFoundError(f"KMA .res file not found: {res_path}")
 
@@ -150,16 +117,8 @@ def process_kma_res(res_path: str) -> pd.DataFrame:
 
     return df[["gene", "allele", "Template_Coverage", "Query_Identity", "Depth"]].copy()
 
-def filter_kma_res(df: pd.DataFrame, thresholds: Dict[str, List[float]]) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    """
-    For each row:
-      - match gene to a config key (exact / case-insensitive / prefix)
-      - if no match -> treat as 'other'
-      - apply [Template_Coverage, Query_Identity, Depth] thresholds
 
-    Returns:
-      pass_df, fail_df
-    """
+def filter_kma_res(df: pd.DataFrame, thresholds: Dict[str, List[float]]) -> Tuple[pd.DataFrame, pd.DataFrame]:
     required = {"gene", "allele", "Template_Coverage", "Query_Identity", "Depth"}
     missing = required - set(df.columns)
     if missing:
@@ -167,20 +126,17 @@ def filter_kma_res(df: pd.DataFrame, thresholds: Dict[str, List[float]]) -> Tupl
 
     work = df.copy()
 
-    # 1) resolve gene -> matched threshold key (or 'other')
     matched_keys: List[str] = [
         resolve_threshold_key_for_gene(str(g), thresholds)
         for g in work["gene"].tolist()
     ]
     work["matched_key"] = matched_keys
 
-    # 2) attach thresholds per row (based on matched_key, so unmatched -> 'other')
     th_df = pd.DataFrame.from_dict(
         thresholds, orient="index", columns=["th_cov", "th_id", "th_depth"]
     )
     work = work.join(th_df, on="matched_key")
-    
-    # 3) apply thresholds
+
     cov = work["Template_Coverage"].astype(float)
     ide = work["Query_Identity"].astype(float)
     dep = work["Depth"].astype(float)
@@ -198,14 +154,9 @@ def filter_kma_res(df: pd.DataFrame, thresholds: Dict[str, List[float]]) -> Tupl
 
     return pass_df, fail_df
 
-
-# ------------------------- Placeholder functions (empty for now) ------------------------- #
+# ------------------------- Helpers for details ------------------------- #
 
 def collect_alleles(df: pd.DataFrame, prefix: str) -> List[str]:
-    """
-    Collect ALL alleles (including duplicates) for rows where gene startswith(prefix),
-    excluding '-' and empty.
-    """
     genes_lower = df["gene"].astype(str).str.lower()
     alleles = df["allele"].astype(str)
 
@@ -216,16 +167,8 @@ def collect_alleles(df: pd.DataFrame, prefix: str) -> List[str]:
             out.append(a)
     return out
 
+
 def build_details_from_df(df: pd.DataFrame, prefixes: List[str], include_gene: bool = False) -> str:
-    """
-    Build details string for rows whose gene startswith ANY prefix in prefixes.
-
-    Format per row:
-      - include_gene=False: allele_cov_id_depth
-      - include_gene=True:  gene_allele_cov_id_depth
-
-    Joined by ';' in df order. If none -> '-'.
-    """
     required = {"gene", "allele", "Template_Coverage", "Query_Identity", "Depth"}
     missing = required - set(df.columns)
     if missing:
@@ -260,19 +203,9 @@ def build_details_from_df(df: pd.DataFrame, prefixes: List[str], include_gene: b
 
     return "-" if len(parts) == 0 else ";".join(parts)
 
-#---------------------------
+# ------------------------- Typing functions ------------------------- #
 
 def determine_stx_subtype(pass_df: pd.DataFrame, fail_df: pd.DataFrame, sample_id: str) -> pd.DataFrame:
-    """
-    Output columns:
-      sample_id, stx1, stx2, Toxin, toxin_pass_details, toxin_fail_details, toxin_details
-
-    stx1/stx2: ALL alleles from PASS lines (duplicates kept).
-    Toxin: concordant PASS subtype calls only (1 unique allele per subtype).
-    toxin_pass_details: per-line allele+metrics for PASS stx* lines.
-    toxin_fail_details: per-line allele+metrics for FAIL stx* lines.
-    toxin_details: 'pass:{toxin_pass_details}_fail:{toxin_fail_details}'
-    """
     required = {"gene", "allele", "Template_Coverage", "Query_Identity", "Depth"}
     missing_pass = required - set(pass_df.columns)
     missing_fail = required - set(fail_df.columns)
@@ -282,14 +215,12 @@ def determine_stx_subtype(pass_df: pd.DataFrame, fail_df: pd.DataFrame, sample_i
     if missing_fail:
         raise ValueError(f"determine_stx_subtype: fail_df missing columns: {sorted(missing_fail)}")
 
-    # PASS allele lists (keep duplicates)
     stx1_alleles = collect_alleles(pass_df, "stx1")
     stx2_alleles = collect_alleles(pass_df, "stx2")
 
     stx1_col = "-" if len(stx1_alleles) == 0 else ";".join(stx1_alleles)
     stx2_col = "-" if len(stx2_alleles) == 0 else ";".join(stx2_alleles)
 
-    # Concordance check (unique among PASS)
     stx1_unique = sorted(set(stx1_alleles))
     stx2_unique = sorted(set(stx2_alleles))
 
@@ -318,19 +249,8 @@ def determine_stx_subtype(pass_df: pd.DataFrame, fail_df: pd.DataFrame, sample_i
 
     return stx_out
 
+
 def determine_O_type(pass_df: pd.DataFrame, fail_df: pd.DataFrame, sample_id: str) -> pd.DataFrame:
-    """
-    Output columns:
-      sample_id | wzx | wzy | wzt | wzm | O_type | O_type_pass_details | O_type_fail_details | O_type_details
-
-    Allele columns (wzx/wzy/wzt/wzm): ALL PASS alleles for that gene (duplicates kept).
-    O_type is called ONLY if:
-      1) wzx and wzy are concordant (single unique allele each, and equal), OR
-      2) wzm and wzt are concordant (single unique allele each, and equal), OR
-      3) all four are concordant to the same allele (single unique allele for each and all equal)
-
-    If none of these hold (or conflicting pair calls), O_type = '-'.
-    """
     required = {"gene", "allele", "Template_Coverage", "Query_Identity", "Depth"}
     missing_pass = required - set(pass_df.columns)
     missing_fail = required - set(fail_df.columns)
@@ -339,7 +259,6 @@ def determine_O_type(pass_df: pd.DataFrame, fail_df: pd.DataFrame, sample_id: st
     if missing_fail:
         raise ValueError(f"determine_O_type: fail_df missing columns: {sorted(missing_fail)}")
 
-    # Collect ALL PASS alleles per gene (keep duplicates)
     wzx_alleles = collect_alleles(pass_df, "wzx")
     wzy_alleles = collect_alleles(pass_df, "wzy")
     wzt_alleles = collect_alleles(pass_df, "wzt")
@@ -350,27 +269,21 @@ def determine_O_type(pass_df: pd.DataFrame, fail_df: pd.DataFrame, sample_id: st
     wzt_col = "-" if len(wzt_alleles) == 0 else ";".join(wzt_alleles)
     wzm_col = "-" if len(wzm_alleles) == 0 else ";".join(wzm_alleles)
 
-    # Unique alleles (for concordance logic)
     wzx_unique = sorted(set(wzx_alleles))
     wzy_unique = sorted(set(wzy_alleles))
     wzt_unique = sorted(set(wzt_alleles))
     wzm_unique = sorted(set(wzm_alleles))
 
-    # O type candidates
     O_candidates: List[str] = []
 
-    #if only one wzx and wzy exist and they are in agreement that is a candidate pair
     if len(wzx_unique) == 1 and len(wzy_unique) == 1 and wzx_unique[0] == wzy_unique[0]:
         O_candidates.append(wzx_unique[0])
 
-    #if only one wzt and wzm exist and they are in agreement that is another candidate pair
     if len(wzt_unique) == 1 and len(wzm_unique) == 1 and wzt_unique[0] == wzm_unique[0]:
         O_candidates.append(wzt_unique[0])
-    
-    O_type='-'
 
+    O_type = "-"
     if O_candidates and len(set(O_candidates)) == 1:
-        #if length is 1, it means if all four exist they are identical, or one of the two O candidate pair exist.
         O_type = O_candidates[0]
 
     prefixes = ["wzx", "wzy", "wzt", "wzm"]
@@ -392,15 +305,8 @@ def determine_O_type(pass_df: pd.DataFrame, fail_df: pd.DataFrame, sample_id: st
 
     return out
 
-def determine_H_type(pass_df: pd.DataFrame, fail_df: pd.DataFrame, sample_id: str) -> pd.DataFrame:
-    """
-    Determine H type using:
-      - Prefer fliC if present (PASS) and concordant
-      - Else use other 'fl*' genes with allele like H\\d+ (PASS) and concordant
 
-    Output columns:
-      sample_id | flagellin | H_type | H_type_pass_details | H_type_fail_details | H_type_details
-    """
+def determine_H_type(pass_df: pd.DataFrame, fail_df: pd.DataFrame, sample_id: str) -> pd.DataFrame:
     required = {"gene", "allele", "Template_Coverage", "Query_Identity", "Depth"}
     missing_pass = required - set(pass_df.columns)
     missing_fail = required - set(fail_df.columns)
@@ -409,32 +315,23 @@ def determine_H_type(pass_df: pd.DataFrame, fail_df: pd.DataFrame, sample_id: st
     if missing_fail:
         raise ValueError(f"determine_H_type: fail_df missing columns: {sorted(missing_fail)}")
 
-    # 1) Prefer fliC
     fliC_alleles = collect_alleles(pass_df, "fliC")
 
-    use_prefixes: List[str]
-    fl_alleles: List[str]
-
     if len(fliC_alleles) > 0:
-        # Use fliC only (even if discordant, we do NOT fall back)
         use_prefixes = ["fliC"]
         fl_alleles = fliC_alleles
     else:
-        # 2) Fall back to other fl* genes (includes fli*, flnA, flkA, etc.)
         use_prefixes = ["fl"]
         fl_alleles = collect_alleles(pass_df, "fl")
 
-    # flagellin column: list ALL alleles seen in the chosen source (duplicates kept)
     flagellin = "-" if len(fl_alleles) == 0 else ";".join(fl_alleles)
 
-    # H_type: only if concordant (exactly 1 unique allele)
     unique = sorted(set(fl_alleles))
     if len(unique) == 1:
-        H_type = unique[0]          # e.g. "H51"
+        H_type = unique[0]
     else:
-        H_type = "-"                # none or discordant
+        H_type = "-"
 
-    # Details (include gene name)
     H_type_pass_details = build_details_from_df(pass_df, use_prefixes, include_gene=True)
     H_type_fail_details = build_details_from_df(fail_df, use_prefixes, include_gene=True)
     H_type_details = f"pass:{H_type_pass_details}|fail:{H_type_fail_details}"
@@ -450,16 +347,8 @@ def determine_H_type(pass_df: pd.DataFrame, fail_df: pd.DataFrame, sample_id: st
 
     return out
 
+
 def determine_adhesin_virulence(pass_df: pd.DataFrame, fail_df: pd.DataFrame, sample_id: str) -> pd.DataFrame:
-    """
-    Output columns:
-      sample_id | Adhesin | Virulence | type_pass_details | type_fail_details | type_details
-
-    Adhesin:  'positive' if eae present in PASS else '-'
-    Virulence:'positive' if ehxA present in PASS else '-'
-
-    Details include gene name + allele + cov + id + depth for eae/ehxA rows.
-    """
     required = {"gene", "allele", "Template_Coverage", "Query_Identity", "Depth"}
     missing_pass = required - set(pass_df.columns)
     missing_fail = required - set(fail_df.columns)
@@ -490,6 +379,8 @@ def determine_adhesin_virulence(pass_df: pd.DataFrame, fail_df: pd.DataFrame, sa
 
     return out
 
+# ------------------------- Final merge ------------------------- #
+
 def is_missing_detail_value(v: object) -> bool:
     if v is None:
         return True
@@ -498,6 +389,7 @@ def is_missing_detail_value(v: object) -> bool:
     s = str(v).strip()
     return s == "" or s == "-"
 
+
 def build_verbose_from_detail_columns(row: pd.Series) -> str:
     parts: List[str] = []
     for col, label in FINAL_DETAIL_SPECS:
@@ -505,83 +397,8 @@ def build_verbose_from_detail_columns(row: pd.Series) -> str:
             parts.append(f"{label}:{row[col]}")
     return "-" if len(parts) == 0 else "||".join(parts)
 
-def merge_final_outputs(
-    stx_out: pd.DataFrame,
-    o_out: pd.DataFrame,
-    h_out: pd.DataFrame,
-    av_out: pd.DataFrame,
-    other_out: pd.DataFrame,
-) -> pd.DataFrame:
-    """
-    Merge per-module outputs on sample_id and collapse the *_details (NOT pass/fail)
-    into a single 'toxin_details' column (previously called 'verbose').
-
-    Final output columns ONLY:
-      sample_id | Toxin | sero_serotype_finder | Adhesin | Virulence | toxin_details
-
-    Notes:
-      - 'other' column is removed from the final output, but 'other_details' is still included
-        inside toxin_details.
-      - O_type and H_type are merged into 'sero_serotype_finder' (semicolon-separated) and
-        removed as standalone columns in the final output.
-      - Temporary files (_O.tsv, _H.tsv, etc.) are unchanged.
-    """
-    final_df = stx_out.merge(o_out, on="sample_id", how="outer")
-    final_df = final_df.merge(h_out, on="sample_id", how="outer")
-    final_df = final_df.merge(av_out, on="sample_id", how="outer")
-    final_df = final_df.merge(other_out, on="sample_id", how="outer")
-
-    # 1) Build combined details column (keep "other" info inside it)
-    final_df["toxin_details_combined"] = final_df.apply(build_verbose_from_detail_columns, axis=1)
-
-    # 2) Merge O_type + H_type -> sero_serotype_finder
-    o = final_df["O_type"] if "O_type" in final_df.columns else "-"
-    h = final_df["H_type"] if "H_type" in final_df.columns else "-"
-
-    o = final_df["O_type"].apply(lambda v: "-" if is_missing_detail_value(v) else str(v).strip())
-    h = final_df["H_type"].apply(lambda v: "-" if is_missing_detail_value(v) else str(v).strip())
-    final_df["sero_serotype_finder"] = o + ";" + h
-
-    # 3) Drop pass/fail detail columns
-    drop_cols: List[str] = []
-    for c in final_df.columns:
-        if c.endswith("_pass_details") or c.endswith("_fail_details"):
-            drop_cols.append(c)
-
-    # Drop the individual final *_details columns (they're now in toxin_details_combined)
-    for col, _label in FINAL_DETAIL_SPECS:
-        if col in final_df.columns:
-            drop_cols.append(col)
-
-    # Drop if present (we don't want these standalone in final output)
-    for c in ["O_type", "H_type", "other", "Other", "verbose"]:
-        if c in final_df.columns:
-            drop_cols.append(c)
-
-    drop_cols = sorted(set(drop_cols))
-    if drop_cols:
-        final_df = final_df.drop(columns=drop_cols)
-
-    # Rename combined details column to requested name
-    final_df = final_df.rename(columns={"toxin_details_combined": "toxin_details"})
-
-    # Keep ONLY requested columns in final output
-    keep = ["sample_id", "Toxin", "sero_serotype_finder", "Adhesin", "Virulence", "toxin_details"]
-    for c in keep:
-        if c not in final_df.columns:
-            final_df[c] = "-"
-
-    final_df = final_df[keep].copy()
-    final_df = final_df.fillna("-")
-
-    return final_df
 
 def build_details_excluding_prefixes(df: pd.DataFrame, excluded_prefixes: List[str]) -> str:
-    """
-    Details for rows whose gene does NOT start with any excluded prefix.
-    Format per row: gene_allele_cov_id_depth
-    Joined by ';' in df order. If none -> '-'
-    """
     required = {"gene", "allele", "Template_Coverage", "Query_Identity", "Depth"}
     missing = required - set(df.columns)
     if missing:
@@ -611,14 +428,8 @@ def build_details_excluding_prefixes(df: pd.DataFrame, excluded_prefixes: List[s
 
     return "-" if len(parts) == 0 else ";".join(parts)
 
-def determine_other(pass_df: pd.DataFrame, fail_df: pd.DataFrame, sample_id: str) -> pd.DataFrame:
-    """
-    Output:
-      sample_id | Other | other_pass_details | other_fail_details | other_details
 
-    Other: unique gene names among PASS rows that are NOT part of the core typing prefixes.
-    Details: gene+allele+metrics for PASS/FAIL rows in this 'other' group.
-    """
+def determine_other(pass_df: pd.DataFrame, fail_df: pd.DataFrame, sample_id: str) -> pd.DataFrame:
     required = {"gene", "allele", "Template_Coverage", "Query_Identity", "Depth"}
     missing_pass = required - set(pass_df.columns)
     missing_fail = required - set(fail_df.columns)
@@ -627,7 +438,6 @@ def determine_other(pass_df: pd.DataFrame, fail_df: pd.DataFrame, sample_id: str
     if missing_fail:
         raise ValueError(f"determine_other: fail_df missing columns: {sorted(missing_fail)}")
 
-    # Which PASS genes belong to "other" group?
     genes_lower = pass_df["gene"].astype(str).str.lower()
     mask_excl = pd.Series([False] * len(pass_df), index=pass_df.index)
     for p in CORE_PREFIXES:
@@ -648,7 +458,55 @@ def determine_other(pass_df: pd.DataFrame, fail_df: pd.DataFrame, sample_id: str
         "other_details": other_details,
     }])
 
-# ------------------------- Main ------------------------- #
+
+def merge_final_outputs(
+    stx_out: pd.DataFrame,
+    o_out: pd.DataFrame,
+    h_out: pd.DataFrame,
+    av_out: pd.DataFrame,
+    other_out: pd.DataFrame,
+) -> pd.DataFrame:
+    final_df = stx_out.merge(o_out, on="sample_id", how="outer")
+    final_df = final_df.merge(h_out, on="sample_id", how="outer")
+    final_df = final_df.merge(av_out, on="sample_id", how="outer")
+    final_df = final_df.merge(other_out, on="sample_id", how="outer")
+
+    final_df["toxin_details_combined"] = final_df.apply(build_verbose_from_detail_columns, axis=1)
+
+    o = final_df["O_type"].apply(lambda v: "-" if is_missing_detail_value(v) else str(v).strip())
+    h = final_df["H_type"].apply(lambda v: "-" if is_missing_detail_value(v) else str(v).strip())
+    final_df["sero_serotype_finder"] = o + ";" + h
+
+    drop_cols: List[str] = []
+    for c in final_df.columns:
+        if c.endswith("_pass_details") or c.endswith("_fail_details"):
+            drop_cols.append(c)
+
+    for col, _label in FINAL_DETAIL_SPECS:
+        if col in final_df.columns:
+            drop_cols.append(col)
+
+    for c in ["O_type", "H_type", "other", "Other", "verbose"]:
+        if c in final_df.columns:
+            drop_cols.append(c)
+
+    drop_cols = sorted(set(drop_cols))
+    if drop_cols:
+        final_df = final_df.drop(columns=drop_cols)
+
+    final_df = final_df.rename(columns={"toxin_details_combined": "toxin_details"})
+
+    keep = ["sample_id", "Toxin", "sero_serotype_finder", "Adhesin", "Virulence", "toxin_details"]
+    for c in keep:
+        if c not in final_df.columns:
+            final_df[c] = "-"
+
+    final_df = final_df[keep].copy()
+    final_df = final_df.fillna("-")
+
+    return final_df
+
+# ------------------------- Organism normalization ------------------------- #
 
 def normalize_organism_key(user_organism: str) -> str:
     org = user_organism.strip()
@@ -669,89 +527,89 @@ def normalize_organism_key(user_organism: str) -> str:
 
     raise ValueError(f"Unrecognized organism '{user_organism}'.")
 
+# ------------------------- CLI ------------------------- #
 
-def main(args: argparse.Namespace) -> None:
-    try:
-        organism_key = normalize_organism_key(args.organism)
-        thresholds = read_geneconfig(args.config, organism_key)
+def build_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(
+        description="Filter KMA .res for E. coli/Shigella typing and produce PASS/FAIL + summary TSVs. '--output' is a prefix."
+    )
+    p.add_argument("--KMA_res", required=True, help="Input KMA .res file")
+    p.add_argument("--config", required=True, help="YAML config with per-organism gene thresholds")
+    p.add_argument("--organism", required=True, help="Organism string (e.g., 'Escherichia coli', 'Shigella sonnei')")
+    p.add_argument("--sample_id", required=True, help="Sample identifier")
+    p.add_argument("--store_tmp", action="store_true", help="Write intermediate *_stx.tsv, *_O.tsv, *_H.tsv, *_adhesin_virulence.tsv, *_other.tsv")
+    p.add_argument("--verbose", action="store_true", help="Write final merged *_final.tsv")
+    p.add_argument("--output", required=True, help="Output prefix (directory/prefix; we append _pass.tsv, _fail.tsv, etc.)")
+    return p
 
-        extracted_df = process_kma_res(args.KMA_res)
-        pass_df, fail_df = filter_kma_res(extracted_df, thresholds)
 
-        # --output is a PREFIX
-        prefix = args.output
-        out_dir = os.path.dirname(prefix)
-        if out_dir:
-            os.makedirs(out_dir, exist_ok=True)
+def main(argv: Optional[List[str]] = None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
 
-        pass_path = f"{prefix}_pass.tsv"
-        fail_path = f"{prefix}_fail.tsv"
+    organism_key = normalize_organism_key(args.organism)
+    thresholds = read_geneconfig(args.config, organism_key)
 
-        pass_df.to_csv(pass_path, sep="\t", index=False)
-        fail_df.to_csv(fail_path, sep="\t", index=False)
+    extracted_df = process_kma_res(args.KMA_res)
+    pass_df, fail_df = filter_kma_res(extracted_df, thresholds)
 
-        print(f"Organism input: {args.organism!r} -> config key: {organism_key!r}", file=sys.stderr)
-        print(f"Loaded {len(thresholds)} thresholds from {args.config}", file=sys.stderr)
-        print(f"Read {len(extracted_df)} hits from {args.KMA_res}", file=sys.stderr)
-        print(f"PASS: {len(pass_df)} -> {pass_path}", file=sys.stderr)
-        print(f"FAIL: {len(fail_df)} -> {fail_path}", file=sys.stderr)
+    prefix = args.output
+    out_dir = os.path.dirname(prefix)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
 
-        # ----- store allele information in gene specific files -------
-        stx_out = determine_stx_subtype(pass_df,fail_df,args.sample_id)
-        o_out = determine_O_type(pass_df, fail_df, args.sample_id)
-        h_out = determine_H_type(pass_df, fail_df, args.sample_id)
-        av_out = determine_adhesin_virulence(pass_df, fail_df, args.sample_id)
-        other_out = determine_other(pass_df, fail_df, args.sample_id)
+    pass_path = f"{prefix}_pass.tsv"
+    fail_path = f"{prefix}_fail.tsv"
 
-        if args.store_tmp:
-            # Store d
-            stx_path = f"{prefix}_stx.tsv"
-            stx_out.to_csv(stx_path, sep="\t", index=False)
-            print(f"STX: wrote {stx_path}", file=sys.stderr)
+    pass_df.to_csv(pass_path, sep="\t", index=False)
+    fail_df.to_csv(fail_path, sep="\t", index=False)
 
-            o_path = f"{prefix}_O.tsv"
-            o_out.to_csv(o_path, sep="\t", index=False)
-            print(f"O: wrote {o_path}", file=sys.stderr)
+    print(f"Organism input: {args.organism!r} -> config key: {organism_key!r}", file=sys.stderr)
+    print(f"Loaded {len(thresholds)} thresholds from {args.config}", file=sys.stderr)
+    print(f"Read {len(extracted_df)} hits from {args.KMA_res}", file=sys.stderr)
+    print(f"PASS: {len(pass_df)} -> {pass_path}", file=sys.stderr)
+    print(f"FAIL: {len(fail_df)} -> {fail_path}", file=sys.stderr)
 
-            h_path = f"{prefix}_H.tsv"
-            h_out.to_csv(h_path, sep="\t", index=False)
-            print(f"H: wrote {h_path}", file=sys.stderr)
-        
-            av_path = f"{prefix}_adhesin_virulence.tsv"
-            av_out.to_csv(av_path, sep="\t", index=False)
-            print(f"Adhesin/Virulence: wrote {av_path}", file=sys.stderr)
+    stx_out = determine_stx_subtype(pass_df, fail_df, args.sample_id)
+    o_out = determine_O_type(pass_df, fail_df, args.sample_id)
+    h_out = determine_H_type(pass_df, fail_df, args.sample_id)
+    av_out = determine_adhesin_virulence(pass_df, fail_df, args.sample_id)
+    other_out = determine_other(pass_df, fail_df, args.sample_id)
 
-            other_path = f"{prefix}_other.tsv"
-            other_out.to_csv(other_path, sep="\t", index=False)
-            print(f"Other: wrote {other_path}", file=sys.stderr)
-        else:
-            print("store_tmp not set: skipping *_stx.tsv, *_O.tsv, *_H.tsv, *_adhesin_virulence.tsv", file=sys.stderr)
+    if args.store_tmp:
+        stx_path = f"{prefix}_stx.tsv"
+        stx_out.to_csv(stx_path, sep="\t", index=False)
+        print(f"STX: wrote {stx_path}", file=sys.stderr)
 
-        if args.verbose:
-            final_df = merge_final_outputs(stx_out, o_out, h_out, av_out, other_out)
-            final_path = f"{prefix}_final.tsv"
-            final_df.to_csv(final_path, sep="\t", index=False)
-            print(f"FINAL: wrote {final_path}", file=sys.stderr)
-        else:
-            print("verbose not set: skipping *_final.tsv", file=sys.stderr)
+        o_path = f"{prefix}_O.tsv"
+        o_out.to_csv(o_path, sep="\t", index=False)
+        print(f"O: wrote {o_path}", file=sys.stderr)
 
-    except Exception as e:
-        print(f"ERROR: {e}", file=sys.stderr)
-        sys.exit(2)
+        h_path = f"{prefix}_H.tsv"
+        h_out.to_csv(h_path, sep="\t", index=False)
+        print(f"H: wrote {h_path}", file=sys.stderr)
+
+        av_path = f"{prefix}_adhesin_virulence.tsv"
+        av_out.to_csv(av_path, sep="\t", index=False)
+        print(f"Adhesin/Virulence: wrote {av_path}", file=sys.stderr)
+
+        other_path = f"{prefix}_other.tsv"
+        other_out.to_csv(other_path, sep="\t", index=False)
+        print(f"Other: wrote {other_path}", file=sys.stderr)
+    else:
+        print("store_tmp not set: skipping *_stx.tsv, *_O.tsv, *_H.tsv, *_adhesin_virulence.tsv, *_other.tsv", file=sys.stderr)
+
+    if args.verbose:
+        final_df = merge_final_outputs(stx_out, o_out, h_out, av_out, other_out)
+        final_path = f"{prefix}_final.tsv"
+        final_df.to_csv(final_path, sep="\t", index=False)
+        print(f"FINAL: wrote {final_path}", file=sys.stderr)
+    else:
+        print("verbose not set: skipping *_final.tsv", file=sys.stderr)
+
+    return 0
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Read YAML gene thresholds and filter a KMA .res into PASS/FAIL files. '--output' is a prefix."
-    )
-    parser.add_argument("--KMA_res", required=True, help="Input KMA .res file")
-    parser.add_argument("--config", required=True, help="YAML config with per-organism gene thresholds")
-    parser.add_argument("--organism", required=True, help="Organism string (e.g., 'Escherichia coli', 'Shigella sonnei')")
-    parser.add_argument("--sample_id", required=True)
-    parser.add_argument("--store_tmp",action="store_true",help="If set, write extra summary TSVs: _stx.tsv, _O.tsv, _H.tsv, _adhesin_virulence.tsv")
-    parser.add_argument("--verbose",action="store_true",help="If set, write {prefix}_final.tsv by merging summary outputs and collapsing *_details into one 'verbose' column.")
-    parser.add_argument("--output", required=True, help="Output prefix (writes {prefix}_pass.tsv and {prefix}_fail.tsv)")
-    args = parser.parse_args()
-    main(args)
+    raise SystemExit(main())
 
-#python ecolityping_filter.py --KMA_res Result/SRR5023683_test.res --config GeneFilter.yaml --organism Escherichia --sample_id SRR5023683 --output FilterTest
