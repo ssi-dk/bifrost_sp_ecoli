@@ -98,15 +98,10 @@ rule check_requirements:
 # KMA database shipped with the component
 # ------------------------------------------------------------------
 
-COMPONENT_DIR = os.path.dirname(workflow.snakefile)
-DB_PREFIX = os.path.join(COMPONENT_DIR, "resources", "ecoligenes")
-
-ANALYSIS_DIR = f"{component['name']}/ecoli_analysis"
-KMA_OUT_PREFIX = f"{ANALYSIS_DIR}/kma"
-TYPING_DIR = f"{ANALYSIS_DIR}/ecolitype"
+DB_PREFIX = os.path.join(os.path.dirname(workflow.snakefile), "resources/ecoligenes")
 
 # ------------------------------------------------------------------
-# run_kma — use prebuilt DB, no indexing
+# run_kma use prebuilt DB, no indexing
 # ------------------------------------------------------------------
 rule_name = "run_kma"
 rule run_kma:
@@ -127,14 +122,14 @@ rule run_kma:
         ],
         reads = sample['categories']['trimmed_reads']['summary']['data'],
     output:
-        aln  = f"{KMA_OUT_PREFIX}.aln",
-        frag = f"{KMA_OUT_PREFIX}.frag.gz",
-        fsa  = f"{KMA_OUT_PREFIX}.fsa",
-        mat  = f"{KMA_OUT_PREFIX}.mat.gz",
-        res  = f"{KMA_OUT_PREFIX}.res",
+        aln  = f"{component['name']}/kma.aln",
+        frag = f"{component['name']}/kma.frag.gz",
+        fsa  = f"{component['name']}/kma.fsa",
+        mat  = f"{component['name']}/kma.mat.gz",
+        res  = f"{component['name']}/kma.res",
     params:
         db_prefix     = DB_PREFIX,
-        output_prefix = KMA_OUT_PREFIX
+        output_prefix = f"{component['name']}/kma"
     shell:
         r"""
         set -euo pipefail
@@ -160,13 +155,12 @@ rule run_ecolityping:
     benchmark:
         f"{component['name']}/benchmarks/{rule_name}.benchmark"
     input:
-        req   = rules.check_requirements.output.check_file,
-        res   = rules.run_kma.output.res,
-        reads = sample['categories']['paired_reads']['summary']['data'],
+        req = rules.check_requirements.output.check_file,
+        res = rules.run_kma.output.res,
     output:
-        output_prefix = directory(f"{TYPING_DIR}"),
-        output_tsv    = f"{TYPING_DIR}_final.tsv",
+        output_tsv = f"{component['name']}/{sample['name']}_typing_final.tsv"
     params:
+        component_prefix = f"{component['name']}/{sample['name']}_typing",
         genefilter    = os.path.join(os.path.dirname(workflow.snakefile), "GeneFilter.yaml"),
         species       = sample['categories']['species_detection']['summary']['species'],
         sample_name   = sample['name'],
@@ -175,7 +169,6 @@ rule run_ecolityping:
     shell:
         r"""
         set -euo pipefail
-        mkdir -p "{output.output_prefix}"
 
         python {params.typing_script} \
             --KMA_res {input.res} \
@@ -183,7 +176,7 @@ rule run_ecolityping:
             --organism "{params.species}" \
             --sample_id "{params.sample_name}" \
             {params.options} \
-            --output "{output.output_prefix}"
+            --output "{params.component_prefix}"
         """
 
 #* Dynamic section: end ****************************************************************************
