@@ -65,7 +65,7 @@ rule all:
 
 rule set_time_start:
     output:
-        start_file = temp(f"{component['name']}/time_start.txt")
+        start_file = f"{component['name']}/time_start.txt"
     run:
         import time
         with open(output.start_file, "w") as fh:
@@ -75,7 +75,7 @@ rule setup:
     input:
         rules.set_time_start.output.start_file
     output:
-        init_file = touch(temp(f"{component['name']}/initialized")),
+        init_file = touch(f"{component['name']}/initialized"),
     run:
         samplecomponent["path"] = os.path.join(os.getcwd(), component["name"])
         samplecomponent.save()
@@ -92,13 +92,11 @@ rule check_requirements:
     input:
         folder = rules.setup.output.init_file,
     output:
-        check_file = f"{component['name']}/requirements_met",
-    params:
-        samplecomponent
+        check_file = touch(f"{component['name']}/requirements_met"),
     run:
         if samplecomponent.has_requirements():
-            with open(output.check_file, "w") as fh:
-                fh.write("")
+            #No need to write anything as the output is using touch to create the flag used to check the requirements
+            pass
 
 #- Templated section: end --------------------------------------------------------------------------
 #* Dynamic section: start **************************************************************************
@@ -136,7 +134,7 @@ rule run_kma:
         fsa  = f"{component['name']}/kma.fsa",
         mat  = f"{component['name']}/kma.mat.gz",
         res  = f"{component['name']}/kma.res",
-        tool_version = temp(f"{component['name']}/tool_version.txt")	
+        tool_version = f"{component['name']}/tool_version.txt"	
     params:
         db_prefix     = DB_PREFIX,
         output_prefix = f"{component['name']}/kma"
@@ -199,7 +197,7 @@ rule set_time_end:
     input:
         rules.run_ecolityping.output.output_tsv
     output:
-        end_file = temp(f"{component['name']}/time_end.txt")
+        end_file = f"{component['name']}/time_end.txt"
     run:
         import time
         with open(output.end_file, "w") as fh:
@@ -211,7 +209,7 @@ rule dump_info:
         end_file = rules.set_time_end.output.end_file,
         tool_version = rules.run_kma.output.tool_version
     output:
-        runtime_flag = temp(f"{component['name']}/runtime_set")
+        runtime_flag = touch(f"{component['name']}/runtime_set")
     run:
         import time
         from bifrostlib.datahandling import SampleComponent
@@ -234,9 +232,6 @@ rule dump_info:
 
         sc.save()
 
-        with open(output.runtime_flag, "w") as fh:
-            fh.write("done")
-
 rule_name = "datadump"
 rule datadump:
     message:
@@ -252,7 +247,7 @@ rule datadump:
     output:
         complete = rules.all.input
     params:
-        samplecomponent_ref_json = samplecomponent.to_reference().json
+        samplecomponent_id = samplecomponent["_id"]
     script:
         os.path.join(os.path.dirname(workflow.snakefile), "datadump.py")
 

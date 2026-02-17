@@ -65,14 +65,15 @@ def convert_ecolitype_row_to_summary(row: Dict[str, Any]) -> Dict[str, Any]:
 def datadump(
     input: Any,
     output: Any,
-    samplecomponent_ref_json: Dict[str, Any]
+    samplecomponent_id : str
 ) -> None:
     """
     Load ecolityping TSV, convert to old-style summary, store in Bifrost.
     """
 
     # Load Bifrost objects
-    samplecomponent_ref = SampleComponentReference(value=samplecomponent_ref_json)
+    #samplecomponent_ref = SampleComponentReference(value=samplecomponent_ref_json)
+    samplecomponent_ref = SampleComponentReference(_id=samplecomponent_id)
     samplecomponent: SampleComponent = SampleComponent.load(samplecomponent_ref)
     sample: Sample = Sample.load(samplecomponent.sample)
     component: Component = Component.load(samplecomponent.component)
@@ -114,5 +115,5 @@ def datadump(
 datadump(
     snakemake.input,
     snakemake.output,
-    snakemake.params.samplecomponent_ref_json,
+    snakemake.params.samplecomponent_id
 )
