@@ -218,20 +218,19 @@ def determine_stx_subtype(pass_df: pd.DataFrame, fail_df: pd.DataFrame, sample_i
     stx1_alleles = collect_alleles(pass_df, "stx1")
     stx2_alleles = collect_alleles(pass_df, "stx2")
 
-    stx1_col = "-" if len(stx1_alleles) == 0 else ";".join(stx1_alleles)
-    stx2_col = "-" if len(stx2_alleles) == 0 else ";".join(stx2_alleles)
-
     stx1_unique = sorted(set(stx1_alleles))
     stx2_unique = sorted(set(stx2_alleles))
 
+    # Report unique alleles only in stx1/stx2 columns
+    stx1_col = "-" if len(stx1_unique) == 0 else ";".join(stx1_unique)
+    stx2_col = "-" if len(stx2_unique) == 0 else ";".join(stx2_unique)
+
+    # Toxin should include ALL unique stx alleles (stx1 + stx2), not only when exactly one
     toxin_parts: List[str] = []
-    if len(stx1_unique) == 1:
-        toxin_parts.append(stx1_unique[0])
-    if len(stx2_unique) == 1:
-        toxin_parts.append(stx2_unique[0])
-
+    toxin_parts.extend(stx1_unique)
+    toxin_parts.extend(stx2_unique)
     toxin_call = "-" if len(toxin_parts) == 0 else ";".join(toxin_parts)
-
+    
     toxin_pass_details = build_details_from_df(pass_df, ["stx"], include_gene=False)
     toxin_fail_details = build_details_from_df(fail_df, ["stx"], include_gene=False)
 
