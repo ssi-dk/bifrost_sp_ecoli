@@ -10,6 +10,7 @@ from bifrostlib.datahandling import ComponentReference
 from bifrostlib.datahandling import Component
 from bifrostlib.datahandling import SampleComponentReference
 from bifrostlib.datahandling import SampleComponent
+import datetime
 
 os.umask(0o2)
 
@@ -62,11 +63,19 @@ rule all:
     run:
         common.set_status_and_save(sample, samplecomponent, "Success")
 
+rule set_time_start:
+    output:
+        start_file = temp(f"{component['name']}/time_start.txt")
+    run:
+        import time
+        with open(output.start_file, "w") as fh:
+            fh.write(str(time.time()))
+
 rule setup:
+    input:
+        rules.set_time_start.output.start_file
     output:
         init_file = touch(temp(f"{component['name']}/initialized")),
-    params:
-        folder = component["name"]
     run:
         samplecomponent["path"] = os.path.join(os.getcwd(), component["name"])
         samplecomponent.save()
@@ -127,6 +136,7 @@ rule run_kma:
         fsa  = f"{component['name']}/kma.fsa",
         mat  = f"{component['name']}/kma.mat.gz",
         res  = f"{component['name']}/kma.res",
+        tool_version = temp(f"{component['name']}/tool_version.txt")	
     params:
         db_prefix     = DB_PREFIX,
         output_prefix = f"{component['name']}/kma"
@@ -140,6 +150,8 @@ rule run_kma:
             -t_db {params.db_prefix} \
             -o {params.output_prefix} \
             1> {log.out_file} 2> {log.err_file}
+        
+        kma -v > {output.tool_version}
         """
 
 # ------------------------------------------------------------------
@@ -179,8 +191,51 @@ rule run_ecolityping:
             --output "{params.component_prefix}"
         """
 
+
 #* Dynamic section: end ****************************************************************************
 #- Templated section: start ------------------------------------------------------------------------
+
+rule set_time_end:
+    input:
+        rules.run_ecolityping.output.output_tsv
+    output:
+        end_file = temp(f"{component['name']}/time_end.txt")
+    run:
+        import time
+        with open(output.end_file, "w") as fh:
+            fh.write(str(time.time()))
+
+rule dump_info:
+    input:
+        start_file = rules.set_time_start.output.start_file,
+        end_file = rules.set_time_end.output.end_file,
+        tool_version = rules.run_kma.output.tool_version
+    output:
+        runtime_flag = temp(f"{component['name']}/runtime_set")
+    run:
+        import time
+        from bifrostlib.datahandling import SampleComponent
+
+        with open(input.start_file) as fh:
+            t_start = float(fh.read().strip())
+        with open(input.end_file) as fh:
+            t_end = float(fh.read().strip())
+        with open(input.tool_version) as fh:
+            tool_version = str(fh.read())
+
+        runtime_minutes = (t_end - t_start) / 60.0
+        print(f"runtime in minutes {runtime_minutes}")
+
+        sc = SampleComponent.load(samplecomponent.to_reference())
+        sc["time_start"] = datetime.datetime.fromtimestamp(t_start).strftime("%Y-%m-%d %H:%M:%S")
+        sc["time_end"] = datetime.datetime.fromtimestamp(t_end).strftime("%Y-%m-%d %H:%M:%S")
+        sc["time_running"] = round(runtime_minutes, 3)
+        sc["tool_version"] = tool_version
+
+        sc.save()
+
+        with open(output.runtime_flag, "w") as fh:
+            fh.write("done")
 
 rule_name = "datadump"
 rule datadump:
@@ -192,7 +247,8 @@ rule datadump:
     benchmark:
         f"{component['name']}/benchmarks/{rule_name}.benchmark"
     input:
-        final_tsv = rules.run_ecolityping.output.output_tsv,
+        rules.dump_info.output.runtime_flag,
+        final_tsv = rules.run_ecolityping.output.output_tsv
     output:
         complete = rules.all.input
     params:
