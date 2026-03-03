@@ -10,48 +10,52 @@ from bifrostlib.datahandling import ComponentReference
 from bifrostlib.datahandling import Component
 from bifrostlib.datahandling import SampleComponentReference
 from bifrostlib.datahandling import SampleComponent
+import datetime
+
 os.umask(0o2)
 
 try:
-    #print(config)
-    sample_ref = SampleReference(_id=config.get('sample_id', None), name=config.get('sample_name', None))
-    sample:Sample = Sample.load(sample_ref) # schema 2.1
-    sample_id=sample['name']
-    print(f"sample_ref {sample_ref} and sample id {sample_id}")
+    sample_ref = SampleReference(
+        _id=config.get('sample_id', None),
+        name=config.get('sample_name', None)
+    )
+    sample: Sample = Sample.load(sample_ref)
     if sample is None:
         raise Exception("invalid sample passed")
+
     component_ref = ComponentReference(name=config['component_name'])
-    component:Component = Component.load(reference=component_ref) # schema 2.1
-    print(f"Component ref: {component_ref}")
-    print(f"Component ref: {component}")
+    component: Component = Component.load(reference=component_ref)
     if component is None:
         raise Exception("invalid component passed")
-    samplecomponent_ref = SampleComponentReference(name=SampleComponentReference.name_generator(sample.to_reference(), component.to_reference()))
+
+    samplecomponent_ref = SampleComponentReference(
+        name=SampleComponentReference.name_generator(
+            sample.to_reference(),
+            component.to_reference()
+        )
+    )
     samplecomponent = SampleComponent.load(samplecomponent_ref)
-    print(f"sample component_ref {samplecomponent_ref}")
-    print(f"sample component {samplecomponent}")
     if samplecomponent is None:
-        samplecomponent:SampleComponent = SampleComponent(sample_reference=sample.to_reference(), component_reference=component.to_reference()) # schema 2.1
+        samplecomponent = SampleComponent(
+            sample_reference=sample.to_reference(),
+            component_reference=component.to_reference()
+        )
+
     common.set_status_and_save(sample, samplecomponent, "Running")
-except Exception as error:
+
+except Exception:
     print(traceback.format_exc(), file=sys.stderr)
     raise Exception("failed to set sample, component and/or samplecomponent")
 
 onerror:
     if not samplecomponent.has_requirements():
         common.set_status_and_save(sample, samplecomponent, "Requirements not met")
-    if samplecomponent['status'] == "Running":
+    if samplecomponent["status"] == "Running":
         common.set_status_and_save(sample, samplecomponent, "Failure")
 
 envvars:
     "BIFROST_INSTALL_DIR",
     "CONDA_PREFIX"
-
-resources_dir=f"{os.environ['BIFROST_INSTALL_DIR']}/bifrost/components/bifrost_{component['display_name']}"
-print(f"resource dir {resources_dir}")
-
-print(f"component db {component['resources']['db']}")
-print(f"component {component['resources']}")
 
 rule all:
     input:
@@ -59,16 +63,22 @@ rule all:
     run:
         common.set_status_and_save(sample, samplecomponent, "Success")
 
-#touch(temp(f"{component['name']}/initialized")),
-rule setup:
+rule set_time_start:
     output:
-        init_file = touch(temp(f"{component['name']}/initialized")),
-    params:
-        folder = component['name']
+        start_file = f"{component['name']}/time_start.txt"
     run:
-        samplecomponent['path'] = os.path.join(os.getcwd(), component['name'])
-        samplecomponent.save()
+        import time
+        with open(output.start_file, "w") as fh:
+            fh.write(str(time.time()))
 
+rule setup:
+    input:
+        rules.set_time_start.output.start_file
+    output:
+        init_file = touch(f"{component['name']}/initialized"),
+    run:
+        samplecomponent["path"] = os.path.join(os.getcwd(), component["name"])
+        samplecomponent.save()
 
 rule_name = "check_requirements"
 rule check_requirements:
@@ -82,18 +92,69 @@ rule check_requirements:
     input:
         folder = rules.setup.output.init_file,
     output:
-        check_file = f"{component['name']}/requirements_met",
-    params:
-        samplecomponent
+        check_file = touch(f"{component['name']}/requirements_met"),
     run:
         if samplecomponent.has_requirements():
-            with open(output.check_file, "w") as fh:
-                fh.write("")
+            #No need to write anything as the output is using touch to create the flag used to check the requirements
+            pass
 
 #- Templated section: end --------------------------------------------------------------------------
-
-print(f"kma database {resources_dir}/bifrost_sp_ecoli/{component['resources']['db']}")
 #* Dynamic section: start **************************************************************************
+
+# ------------------------------------------------------------------
+# KMA database shipped with the component
+# ------------------------------------------------------------------
+
+DB_PREFIX = os.path.join(os.path.dirname(workflow.snakefile), "resources/ecoligenes")
+
+# ------------------------------------------------------------------
+# run_kma use prebuilt DB, no indexing
+# ------------------------------------------------------------------
+rule_name = "run_kma"
+rule run_kma:
+    message:
+        f"Running step:{rule_name}"
+    log:
+        out_file = f"{component['name']}/log/{rule_name}.out.log",
+        err_file = f"{component['name']}/log/{rule_name}.err.log",
+    benchmark:
+        f"{component['name']}/benchmarks/{rule_name}.benchmark"
+    input:
+        req   = rules.check_requirements.output.check_file,
+        db_idx = [
+            f"{DB_PREFIX}.name",
+            f"{DB_PREFIX}.seq.b",
+            f"{DB_PREFIX}.length.b",
+            f"{DB_PREFIX}.comp.b",
+        ],
+        reads = sample['categories']['trimmed_reads']['summary']['data'],
+    output:
+        aln  = f"{component['name']}/kma.aln",
+        frag = f"{component['name']}/kma.frag.gz",
+        fsa  = f"{component['name']}/kma.fsa",
+        mat  = f"{component['name']}/kma.mat.gz",
+        res  = f"{component['name']}/kma.res",
+        tool_version = f"{component['name']}/tool_version.txt"	
+    params:
+        db_prefix     = DB_PREFIX,
+        output_prefix = f"{component['name']}/kma"
+    shell:
+        r"""
+        set -euo pipefail
+        mkdir -p "$(dirname "{params.output_prefix}")"
+
+        kma -ipe {input.reads[0]} {input.reads[1]} \
+            -matrix \
+            -t_db {params.db_prefix} \
+            -o {params.output_prefix} \
+            1> {log.out_file} 2> {log.err_file}
+        
+        kma -v > {output.tool_version} 2>&1
+        """
+
+# ------------------------------------------------------------------
+# ecolityping
+# ------------------------------------------------------------------
 rule_name = "run_ecolityping"
 rule run_ecolityping:
     message:
@@ -102,59 +163,113 @@ rule run_ecolityping:
         out_file = f"{component['name']}/log/{rule_name}.out.log",
         err_file = f"{component['name']}/log/{rule_name}.err.log",
     benchmark:
-        f"{component['name']}/benchmarks/{rule_name}.benchmark",
-    input:  # files
-        rules.check_requirements.output.check_file,
-        reads = sample['categories']['paired_reads']['summary']['data'],
-        db = f"{resources_dir}/bifrost_sp_ecoli/{component['resources']['db']}",
-    params:  # values
-        sample_id = sample_id,
-        update = "no",
-        kma_path = f"{os.environ['CONDA_PREFIX']}/bin"
+        f"{component['name']}/benchmarks/{rule_name}.benchmark"
+    input:
+        req = rules.check_requirements.output.check_file,
+        res = rules.run_kma.output.res,
     output:
-        _aln = f"{rules.setup.params.folder}/ecoli_analysis/{sample_id}/sp_ecoli_fbi/colipost.aln",
-        _frag = f"{rules.setup.params.folder}/ecoli_analysis/{sample_id}/sp_ecoli_fbi/colipost.frag.gz",
-        _fsa = f"{rules.setup.params.folder}/ecoli_analysis/{sample_id}/sp_ecoli_fbi/colipost.fsa",
-        _mat = f"{rules.setup.params.folder}/ecoli_analysis/{sample_id}/sp_ecoli_fbi/colipost.mat.gz",
-        _res = f"{rules.setup.params.folder}/ecoli_analysis/{sample_id}/sp_ecoli_fbi/colipost.res",
+        output_tsv = f"{component['name']}/{sample['name']}_typing_final.tsv"
+    params:
+        component_prefix = f"{component['name']}/{sample['name']}_typing",
+        genefilter    = os.path.join(os.path.dirname(workflow.snakefile), "GeneFilter.yaml"),
+        species       = sample['categories']['species_detection']['summary']['species'],
+        sample_name   = sample['name'],
+        options       = "--store_tmp --verbose",
+        typing_script = os.path.join(os.path.dirname(workflow.snakefile), "rule__ecolityping.py")
     shell:
-        """
-        # Type
-        python3 {resources_dir}/bifrost_sp_ecoli/ecoli_fbi/ecolityping.py -i {params.sample_id} -R1 {input.reads[0]} -R2 {input.reads[1]} -db {input.db} -k {params.kma_path} --update \
-{params.update} -o {rules.setup.params.folder}/ecoli_analysis 1> {log.out_file} 2> {log.err_file}
-	"""
+        r"""
+        set -euo pipefail
 
-rule_name = "run_postecolityping"
-rule run_postecolityping:
+        python {params.typing_script} \
+            --KMA_res {input.res} \
+            --config {params.genefilter} \
+            --organism "{params.species}" \
+            --sample_id "{params.sample_name}" \
+            {params.options} \
+            --output "{params.component_prefix}"
+        """
+
+
+#* Dynamic section: end ****************************************************************************
+#- Templated section: start ------------------------------------------------------------------------
+
+rule set_time_end:
+    input:
+        rules.run_ecolityping.output.output_tsv
+    output:
+        end_file = f"{component['name']}/time_end.txt"
+    run:
+        import time
+        with open(output.end_file, "w") as fh:
+            fh.write(str(time.time()))
+
+rule_name = "git_version"
+rule git_version:
     message:
         f"Running step:{rule_name}"
     log:
         out_file = f"{component['name']}/log/{rule_name}.out.log",
         err_file = f"{component['name']}/log/{rule_name}.err.log",
     benchmark:
-        f"{component['name']}/benchmarks/{rule_name}.benchmark",
+        f"{component['name']}/benchmarks/{rule_name}.benchmark"
     input:
-        rules.check_requirements.output.check_file,
-        #folder = rules.run_ecolityping.output.folder,
-        _aln = rules.run_ecolityping.output._aln,
-        _frag = rules.run_ecolityping.output._frag,
-        _fsa = rules.run_ecolityping.output._fsa,
-        _mat = rules.run_ecolityping.output._mat,
-        _res = rules.run_ecolityping.output._res,
+        rules.setup.output.init_file
     output:
-        _file = f"{rules.setup.params.folder}/ecoli_analysis/{rules.run_ecolityping.params.sample_id}/{rules.run_ecolityping.params.sample_id}.json",
-        _tsv = f"{rules.setup.params.folder}/ecoli_analysis/{rules.run_ecolityping.params.sample_id}/{rules.run_ecolityping.params.sample_id}.tsv",
-    params:  # values
-        sample_id = rules.run_ecolityping.params.sample_id,
-    shell:
-        """
-        # Process
-        python3 {resources_dir}/bifrost_sp_ecoli/ecoli_fbi/postecolityping.py -i {params.sample_id} -d {rules.setup.params.folder}/ecoli_analysis 1> {log.out_file} 2> {log.err_file}
-        """
+        git_hash = f"{component['name']}/git_hash.txt"
+    run:
+        import subprocess, os
 
-#* Dynamic section: end ****************************************************************************
+        snake_dir = os.path.dirname(workflow.snakefile)
 
-#- Templated section: start ------------------------------------------------------------------------
+        # Best effort: get commit hash; if not a git repo, write "-"
+        try:
+            git_hash = subprocess.check_output(
+                ["git", "-C", snake_dir, "rev-parse", "HEAD"],
+                stderr=subprocess.STDOUT,
+                text=True
+            ).strip()
+        except Exception as e:
+            git_hash = "-"
+            os.makedirs(os.path.dirname(log.err_file), exist_ok=True)
+            with open(log.err_file, "a") as fh:
+                fh.write(f"[git_version] Could not determine git hash from {snake_dir}: {e}\n")
+
+        with open(output.git_hash, "w") as fh:
+            fh.write(str(git_hash))
+
+rule dump_info:
+    input:
+        start_file = rules.set_time_start.output.start_file,
+        end_file = rules.set_time_end.output.end_file,
+        tool_version = rules.run_kma.output.tool_version,
+        git_hash = rules.git_version.output.git_hash
+    output:
+        runtime_flag = touch(f"{component['name']}/runtime_set")
+    run:
+        import time
+        from bifrostlib.datahandling import SampleComponent
+
+        with open(input.start_file) as fh:
+            t_start = float(fh.read().strip())
+        with open(input.end_file) as fh:
+            t_end = float(fh.read().strip())
+        with open(input.tool_version) as fh:
+            tool_version = str(fh.read().rstrip("\n"))
+        with open(input.git_hash) as fh:
+            git_hash = str(fh.read().strip())
+
+        runtime_minutes = (t_end - t_start) / 60.0
+        print(f"runtime in minutes {runtime_minutes}")
+
+        sc = SampleComponent.load(samplecomponent.to_reference())
+        sc["time_start"] = datetime.datetime.fromtimestamp(t_start).strftime("%Y-%m-%d %H:%M:%S")
+        sc["time_end"] = datetime.datetime.fromtimestamp(t_end).strftime("%Y-%m-%d %H:%M:%S")
+        sc["time_running"] = round(runtime_minutes, 3)
+        sc["tool_version"] = tool_version
+        sc["git_hash"] = git_hash
+
+        sc.save()
+
 rule_name = "datadump"
 rule datadump:
     message:
@@ -165,12 +280,14 @@ rule datadump:
     benchmark:
         f"{component['name']}/benchmarks/{rule_name}.benchmark"
     input:
-        ecoli_analysis_output_file = rules.run_postecolityping.output._file,
-        ecoli_analysis_output_tsv = rules.run_postecolityping.output._tsv,
+        rules.dump_info.output.runtime_flag,
+        final_tsv = rules.run_ecolityping.output.output_tsv
     output:
         complete = rules.all.input
     params:
-        samplecomponent_ref_json = samplecomponent.to_reference().json
+        samplecomponent_id = samplecomponent["_id"]
     script:
-        f"{resources_dir}/bifrost_sp_ecoli/datadump.py"
+        os.path.join(os.path.dirname(workflow.snakefile), "datadump.py")
+
 #- Templated section: end --------------------------------------------------------------------------
+
