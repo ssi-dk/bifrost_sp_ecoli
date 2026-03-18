@@ -31,7 +31,7 @@ snakemake -p --nolock --cores 5 -s <path>/pipeline.smk --config sample_name="sam
 If any additional species need this typing component, the files [config.yaml](https://github.com/ssi-dk/bifrost_sp_ecoli/blob/main/bifrost_sp_ecoli/config.yaml) (describing the species name and abbreviation) and [GeneFilter.yaml](https://github.com/ssi-dk/bifrost_sp_ecoli/blob/main/bifrost_sp_ecoli/GeneFilter.yaml) (containing the allele-specific threshold) needs to be altered. 
 
 ## Analysis
-To determine the various groups described above, the [rule_ecolityping](https://github.com/ssi-dk/bifrost_sp_ecoli/blob/main/bifrost_sp_ecoli/rule__ecolityping.py) defined in the [pipeline](https://github.com/ssi-dk/bifrost_sp_ecoli/blob/main/bifrost_sp_ecoli/pipeline.smk) wrangles the procuded kma results using the following.
+To determine the various groups described above, the [rule_ecolityping](https://github.com/ssi-dk/bifrost_sp_ecoli/blob/main/bifrost_sp_ecoli/rule__ecolityping.py) defined in the [pipeline](https://github.com/ssi-dk/bifrost_sp_ecoli/blob/main/bifrost_sp_ecoli/pipeline.smk) wrangles the produced kma results.
 
 ### KMA result
 One example of the aligned kma results *kma.res*
@@ -65,7 +65,7 @@ To determine any of the described categories, in this example, the Template need
 
 Once the templates have been filtered according to the described thresholds, the various categories are set according to the following criteria:
 
-- **Shiga Toxin:** Only PASSED hits for _stx*_ genes are used to make the toxin call, and alleles are collected separately for *stx1* and *stx2*. Toxin calling is not based on a single best hit — it reports all passing toxin alleles, and only the unique alleles are reported in the final result. Thus, the *Toxin* field (see below) is the union of all unique *stx1* and *stx2* alleles that passed.
+- **Shiga Toxin:** Only PASSED hits for _stx*_ genes are used to make the toxin call, and alleles are collected separately for *stx1* and *stx2*. Toxin calling is not based on a single best hit — it reports all passing toxin alleles, and only the unique alleles are reported in the final result. Thus, the *Toxin* field (described in the next section) is the union of all unique *stx1* and *stx2* alleles that passed.
 
 - **O-type:** Only PASSED hits for _wz*_ genes (`wzx`, `wzy`, `wzt`, `wzm`) are used to build O-type candidates. The candidates are separated into pairs `wzx/wzy` and `wzt/wzm`, and the final column `O_type` is only assigned if all valid candidate pairs agree on the same allele. Thus, non-concordant PASS hits among _wz*_ genes do not produce an O-type call, but are retained in the `toxin_details` column.
 
@@ -83,13 +83,13 @@ Once the templates have been filtered according to the described thresholds, the
  - **Virulence-type:** Only PASSED hits for *ehx* genes are used to determine Adhesin. The *Virulence* column is treated as a presence/absence marker, not subtype calls, thus if one or several PASS eae alleles are present, the column is set to *positive*
 
 ### Final results
-The pipeline generates numerous output files with filtered genes for each category (e.g. *<sample_name>__typing_H.tsv*) , while also creating a final concatenated output file (*<sample_name>_typing_final.tsv*), which is stored within the database (see [datadump](https://github.com/ssi-dk/bifrost_sp_ecoli/blob/main/bifrost_sp_ecoli/datadump.py)).
+The pipeline generates numerous output files with filtered genes for each category (e.g. *<sample_name>__typing_H.tsv*) , while also creating a final concatenated output file (*<sample_name>_typing_final.tsv*), which is stored within the database using the script [datadump](https://github.com/ssi-dk/bifrost_sp_ecoli/blob/main/bifrost_sp_ecoli/datadump.py).
 
-e.g.
+Once downstream filtering of the original KMA results has been completed, the final results are shown below.
 ```bash
 sample_id       Toxin   sero_serotype_finder    Adhesin Virulence       toxin_details
 "<sample_name>"  stx2-a;stx2-c   O157;H7 positive        positive        toxin:pass:stx2-a_100.00_99.92_246.78;stx2-c_100.00_100.00_56.33|fail:-||Otype:pass:wzx_O157_100.00_100.00_56.60;wzy_O157_100.00_100.00_20.27|fail:-||Htype:pass:fliC_H7_100.00_100.00_204.77|fail:-||adhesin_virulence:pass:eae_eae-42_100.00_100.00_157.42;ehxA_ehxA-3_100.00_99.97_45.08|fail:-||other:pass:-|fail:-
 ```
 
 ### Conclusion
-From the final results above for this test example *"<sample_name>"*, it is possible to determine this strain *Escherichia coli* O157:H7 is a highly virulent Shiga toxin-producing E. coli (STEC).
+From the final results above for this test example, it is possible to determine that this strain *Escherichia coli* O157:H7 is a highly virulent Shiga toxin-producing E. coli (STEC).
